@@ -95,11 +95,18 @@ namespace Plugin {
         string version = service->Version();
 
         _skipURL = static_cast<uint8_t>(service->WebPrefix().length());
-        Core::File aclFile(service->PersistentPath() + config.ACL.Value(), true);
+        Core::File aclFile("/opt/thunder_acl.json", true);
+        
+        if (aclFile.Exists() == false) {
+            aclFile = "/etc/thunder_acl.json";
+        }
 
         if (aclFile.Exists() == false) {
             aclFile = service->DataPath() + config.ACL.Value();
         }
+
+        SYSLOG(Logging::Startup, (_T("SecurityAgent: Reading acl file %s"), aclFile.Name().c_str()));
+
         if ((aclFile.Exists() == true) && (aclFile.Open(true) == true)) {
 
             if (_acl.Load(aclFile) == Core::ERROR_INCOMPLETE_CONFIG) {
@@ -134,8 +141,11 @@ namespace Plugin {
         string connector = config.Connector.Value();
 
         if (connector.empty() == true) {
-            connector = service->VolatilePath() + _T("token");
+            connector = _T("/tmp/securityagent");
         }
+
+        SYSLOG(Logging::Notification,(_T("SecurityAgent TokenDispatcher connector path %s"),connector.c_str()));
+
         _dispatcher = new TokenDispatcher(Core::NodeId(connector.c_str()), this);
 
         // On success return empty, to indicate there is no error text.
@@ -166,6 +176,10 @@ namespace Plugin {
 
     /* virtual */ uint32_t SecurityAgent::CreateToken(const uint16_t length, const uint8_t buffer[], string& token)
     {
+        string strBuffer;
+        strBuffer.assign(reinterpret_cast<const char*>(buffer),length);
+        SYSLOG(Logging::Notification, (_T("Creating Token for %s"), strBuffer.c_str()));
+        
         // Generate the token from the buffer coming in...
         Web::JSONWebToken newToken(Web::JSONWebToken::SHA256, sizeof(_secretKey), _secretKey);
 
