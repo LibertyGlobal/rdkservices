@@ -54,7 +54,6 @@ using namespace std;
 
 #define HDMI_IN_ARC_PORT_ID 1
 
-
 #define HDMICECSINK_CALLSIGN "org.rdk.HdmiCecSink"
 #define HDMICECSINK_CALLSIGN_VER HDMICECSINK_CALLSIGN".1"
 #define HDMICECSINK_ARC_INITIATION_EVENT "arcInitiationEvent"
@@ -124,12 +123,10 @@ namespace WPEFramework {
 
     namespace Plugin {
 
-        SERVICE_REGISTRATION(DisplaySettings, 1, 0);
-
         DisplaySettings* DisplaySettings::_instance = nullptr;
 
-        DisplaySettings::DisplaySettings()
-            : AbstractPlugin()
+        DisplaySettings::DisplaySettings(bool hdmiCecSinkAvailable)
+            : AbstractPlugin(), hdmiCecSinkAvailable(hdmiCecSinkAvailable)
         {
             LOGINFO("ctor");
             DisplaySettings::_instance = this;
@@ -196,7 +193,15 @@ namespace WPEFramework {
             registerMethod("getDefaultResolution", &DisplaySettings::getDefaultResolution, this);
             registerMethod("setScartParameter", &DisplaySettings::setScartParameter, this);
 
-	    m_timer.connect(std::bind(&DisplaySettings::onTimer, this));
+            if (!hdmiCecSinkAvailable)
+            {
+                LOGWARN("HdmiCecSink is not available; HDMI_ARC events will not be set up");
+                LOGWARN("do not expect ARC to fully work !");
+            }
+            else
+            {
+                m_timer.connect(std::bind(&DisplaySettings::onTimer, this));
+            }
         }
 
         DisplaySettings::~DisplaySettings()
@@ -277,9 +282,12 @@ namespace WPEFramework {
                 m_timer.stop();
             }
 
-            Utils::activatePlugin(HDMICECSINK_CALLSIGN);
-            LOGINFO("Starting the timer");
-            m_timer.start(RECONNECTION_TIME_IN_MILLISECONDS);
+            if (hdmiCecSinkAvailable)
+            {
+                Utils::activatePlugin(HDMICECSINK_CALLSIGN);
+                LOGINFO("Starting the timer");
+                m_timer.start(RECONNECTION_TIME_IN_MILLISECONDS);
+            }
 
             InitAudioPorts();
 
@@ -1047,6 +1055,8 @@ namespace WPEFramework {
             }
             else if (soundMode == "dolby digital 5.1")
                 mode = device::AudioStereoMode::kSurround;
+            else if (soundMode == "follow")
+                mode = device::AudioStereoMode::kFollow;
             else
             {
                 LOGWARN("Sound mode '%s' is empty or incompatible with known values, hence sound mode will not changed!", soundMode.c_str());
@@ -1197,7 +1207,7 @@ namespace WPEFramework {
             LOGINFOMETHOD();
 
             string videoDisplay = parameters.HasLabel("videoDisplay") ? parameters["videoDisplay"].String() : "HDMI0";
-            bool active = true;
+            bool active = false;
             try
             {
                 device::VideoOutputPort &vPort = device::Host::getInstance().getVideoOutputPort(videoDisplay);
@@ -2604,6 +2614,15 @@ namespace WPEFramework {
         void DisplaySettings::onTimer()
         {
             LOGINFO();
+            if (!hdmiCecSinkAvailable)
+            {
+                LOGERR("HdmiCecSink not available; HDMI_ARC events will not be set up");
+                if (m_timer.isActive())
+                {
+                    m_timer.stop();
+                }
+                return;
+            }
 	    m_callMutex.lock();
             static bool isInitDone = false;
             bool pluginActivated = Utils::isPluginActivated(HDMICECSINK_CALLSIGN);
