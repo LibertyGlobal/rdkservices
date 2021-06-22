@@ -54,6 +54,7 @@ namespace WPEFramework {
             //Begin methods
             uint32_t getHDCPStatusWrapper(const JsonObject& parameters, JsonObject& response);
             uint32_t getSettopHDCPSupportWrapper(const JsonObject& parameters, JsonObject& response);
+            uint32_t getRxHDCPSupportedVersion(const JsonObject& parameters, JsonObject& response);
 
             //End methods
 

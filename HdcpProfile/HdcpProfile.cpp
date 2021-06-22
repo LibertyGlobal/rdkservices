@@ -35,6 +35,7 @@
 #define HDCP_PROFILE_METHOD_GET_SETTOP_HDCP_SUPPORT "getSettopHDCPSupport"
 #define HDCP_PROFILE_METHOD_SET_HDCPPROFILE "setHDCPProfile"
 #define HDCP_PROFILE_METHOD_GET_HDCPPROFILE "getHDCPProfile"
+#define HDCP_PROFILE_METHOD_GET_Rx_HDCP_SUPPORT "getRxHDCPSupportedVersion"
 
 #define HDCP_PROFILE_EVT_ON_DISPLAY_CONNECTION_CHANGED "onDisplayConnectionChanged"
 
@@ -58,6 +59,7 @@ namespace WPEFramework
 
             registerMethod(HDCP_PROFILE_METHOD_GET_HDCP_STATUS, &HdcpProfile::getHDCPStatusWrapper, this);
             registerMethod(HDCP_PROFILE_METHOD_GET_SETTOP_HDCP_SUPPORT, &HdcpProfile::getSettopHDCPSupportWrapper, this);
+            registerMethod(HDCP_PROFILE_METHOD_GET_Rx_HDCP_SUPPORT, &HdcpProfile::getRxHDCPSupportedVersion, this);
         }
 
         HdcpProfile::~HdcpProfile()
@@ -298,6 +300,64 @@ namespace WPEFramework
                     break;
             }
             return sHDCPEnabledStatusReason.c_str();
+        }
+
+        uint32_t HdcpProfile::getRxHDCPSupportedVersion(const JsonObject& parameters, JsonObject& response)
+        {
+            LOGINFO();
+
+            string rxHDCPSupportedVersion;
+            bool res = false;
+            bool isConnected = false;
+            dsHdcpProtocolVersion_t HDCPVersion = dsHDCP_VERSION_1X;
+            const string videoPort = parameters.HasLabel("videoPort") ? parameters["videoPort"].String() : "HDMI0";
+
+            try
+            {
+                device::VideoOutputPort vPort = device::VideoOutputPortConfig::getInstance().getPort(videoPort);
+                isConnected = vPort.isDisplayConnected();
+                if(isConnected)
+                {
+                    isConnected = vPort.isActive();
+                    if(isConnected)
+                    {
+                        HDCPVersion = (dsHdcpProtocolVersion_t)vPort.getRxHDCPSupportedVersion();
+                    }
+                }
+            }
+            catch (const std::exception e)
+            {
+                LOGWARN("DS exception caught: %s\n",e.what());
+                isConnected = false;
+            }
+
+            if(!isConnected)
+            {
+                rxHDCPSupportedVersion = "0.0";
+                LOGWARN("HDMI not connected; HDCP version unknown\n");
+            }
+            else
+            {
+                LOGINFO("HDMI connected, HDCP version %d\n",int(HDCPVersion));
+                switch(HDCPVersion)
+                {
+                    case dsHDCP_VERSION_2X:
+                        rxHDCPSupportedVersion = "2.2";
+                        res = true;
+                        break;
+                    case dsHDCP_VERSION_1X:
+                        res = true;
+                        rxHDCPSupportedVersion = "1.4";
+                        break;
+                    default:
+                        LOGWARN("protocol version value '%d' unknown; returning 0.0\n", HDCPVersion);
+                        rxHDCPSupportedVersion = "0.0";
+                        break;
+                }
+            }
+
+            response["supportedRxHDCPVersion"] = rxHDCPSupportedVersion;
+            returnResponse(res);
         }
 
         //End methods
