@@ -102,35 +102,12 @@ namespace Plugin {
     /* virtual */ void PlayerInfo::Deinitialize(PluginHost::IShell* service)
     {
         ASSERT(_player != nullptr);
+        ASSERT(_audioCodecs != nullptr);
+        ASSERT(_videoCodecs != nullptr);
         ASSERT(service == _service);
 
         _service->Unregister(&_rcnotification);
 
-        if (_player != nullptr) {
-            if (_audioCodecs != nullptr) {
-                _audioCodecs->Release();
-                _audioCodecs = nullptr;
-            }
-            if (_videoCodecs != nullptr) {
-                _videoCodecs->Release();
-                _videoCodecs = nullptr;
-            }
-
-            Exchange::JPlayerProperties::Unregister(*this);
-            auto const result = _player->Release();
-
-            if (result != Core::ERROR_DESTRUCTION_SUCCEEDED) {
-                RPC::IRemoteConnection* connection(_service->RemoteConnection(_connectionId));
-
-                // The process can disappear in the meantime...
-                if (connection != nullptr) {
-
-                    // But if it did not dissapear in the meantime, forcefully terminate it. Shoot to kill :-)
-                    connection->Terminate();
-                    connection->Release();
-                }
-            }
-        }
         if (_dolbyOut != nullptr)
         {
              _notification.Deinitialize();
@@ -140,8 +117,28 @@ namespace Plugin {
             _dolbyOut = nullptr;
 
         }
-        _connectionId = 0;
 
+        _audioCodecs->Release();
+        _audioCodecs = nullptr;
+        _videoCodecs->Release();
+        _videoCodecs = nullptr;
+
+        Exchange::JPlayerProperties::Unregister(*this);
+        auto const result = _player->Release();
+
+        if (result != Core::ERROR_DESTRUCTION_SUCCEEDED) {
+            RPC::IRemoteConnection* connection(_service->RemoteConnection(_connectionId));
+
+            // The process can disappear in the meantime...
+            if (connection != nullptr) {
+
+                // But if it did not dissapear in the meantime, forcefully terminate it. Shoot to kill :-)
+                connection->Terminate();
+                connection->Release();
+            }
+        }
+
+        _connectionId = 0;
         _service = nullptr;
     }
 
