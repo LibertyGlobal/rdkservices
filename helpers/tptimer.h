@@ -20,8 +20,8 @@
 #ifndef TTIMER_H
 #define TTIMER_H
 
-//#include <core/Timer.h>
-#include <plugins/plugins.h>
+#include <core/Timer.h>
+// #include <plugins/plugins.h>
 
 namespace WPEFramework
 {
