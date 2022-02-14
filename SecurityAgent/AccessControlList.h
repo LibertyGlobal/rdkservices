@@ -24,7 +24,7 @@
 #include <regex>
 
 // helper functions
-namespace {
+namespace ACLHelperFunctions {
     
     void ReplaceString(string& subject, const string& search,const string& replace) 
     {
@@ -279,7 +279,7 @@ namespace Plugin {
                     Core::JSON::ArrayType<Core::JSON::String>::ConstIterator index(rules.Methods.Elements());
                     while (index.Next() == true) {
                         string str = index.Current().Value();
-                        _methods.emplace_back(CreateRegex(str));
+                        _methods.emplace_back(ACLHelperFunctions::CreateRegex(str));
                     }
                 }
                 ~Plugin() {
@@ -321,7 +321,7 @@ namespace Plugin {
           
                 while (index.Next() == true) {
                     _plugins.emplace(std::piecewise_construct,
-                            std::forward_as_tuple(CreateRegex(index.Key())),
+			    std::forward_as_tuple(ACLHelperFunctions::CreateRegex(index.Key())),
                             std::forward_as_tuple(index.Current()));
                 }
             }
@@ -451,7 +451,7 @@ namespace Plugin {
                     Filter& entry(selectedFilter->second);
                     
                     // create regex for url
-                    string url_regex = CreateUrlRegex(index.Current().URL.Value());
+                    string url_regex = ACLHelperFunctions::CreateUrlRegex(index.Current().URL.Value());
                     
                     _urlMap.emplace_back(std::pair<string, Filter&>(
                         url_regex, entry));
