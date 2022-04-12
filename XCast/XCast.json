@@ -3,7 +3,7 @@
     "jsonrpc": "2.0",
     "info": {
         "title": "XCast API", 
-        "class": "XCast", 
+        "class": "org.rdk.Xcast",
         "description": "This XCast plugin provides methods and events to support launching applications from an external source (for example, DIAL, Alexa, or WebPA). The RT implementation should use a RT service name that complies to the convention `com.comcast.<name>cast`. For example, `com.comcast.xdialcast` is used by `xdialserver`."
     },
     "definitions": {
