@@ -20,6 +20,7 @@
 #include "XCast.h"
 #include "tracing/Logging.h"
 #include "utils.h"
+#include "powerstate.h"
 #ifdef RFC_ENABLED
 #include "rfcapi.h"
 #endif //RFC_ENABLED
@@ -27,6 +28,7 @@
 #include <cstring>
 #include <cjson/cJSON.h>
 #include "RtXcastConnector.h"
+
 using namespace std;
 
 // Events
@@ -652,14 +654,22 @@ bool XCast::checkRFCServiceStatus()
 
 bool XCast::onXcastSystemApplicationSleepRequest(string key)
 {
-    LOGINFO("onXcastSystemApplicationSleepRequest: key='%s'",key.c_str());
-    /*
-        this method needs to:
-            - check if the key is correct
-            - start transition to low power mode
-            - return true if the transition was successfully started, false otherwise
-    */
-    return true;
+    LOGINFO("onXcastSystemApplicationSleepRequest");
+
+    if (key == systemRequestKeyValue) {
+        LOGINFO("onXcastSystemApplicationSleepRequest: passed key validation");
+
+        if ("ON" == CPowerState::instance()->getPowerState()) {
+            // call IARM_BUS_PWRMGR_API_SetPowerState to request power state transition to active standby with source
+            // set to DIAL (param.newState=IARM_BUS_PWRMGR_POWERSTATE_STANDBY, param.newSource=0x09 (DIAL)
+            return CPowerState::instance()->setPowerState("STANDBY", IARM_BUS_PWRMGR_STATE_SOURCE_DIAL);
+        } else {
+            return true;
+        }
+    } else {
+        LOGINFO("onXcastSystemApplicationSleepRequest: failed key validation for key: '%s'", key.c_str());
+        return false;
+    }
 }
 
 } // namespace Plugin

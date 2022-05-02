@@ -101,6 +101,9 @@ private:
     static bool m_enableStatus;
     //Timer related variables and functions
     TpTimer m_locateCastTimer;
+
+    const std::string systemRequestKeyValue = "vaLib)6?b%$^CP;/F";
+
     const void InitializeIARM();
     void DeinitializeIARM();
     //Internal methods
