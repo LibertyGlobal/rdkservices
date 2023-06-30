@@ -6,6 +6,8 @@
 
 #include "UtilsIarm.h"
 
+#include "util.h"
+
 namespace WPEFramework {
 namespace Plugin {
 
@@ -25,16 +27,16 @@ namespace Plugin {
         }
     }
 
-    uint32_t DeviceAudioCapabilities::SupportedAudioPorts(RPC::IStringIterator*& supportedAudioPorts) const
+    uint32_t DeviceAudioCapabilities::AudioOutputs(IAudioOutputIterator*& audioOutputs /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
-        std::list<string> list;
+        std::list<AudioOutput> list;
 
         try {
             const auto& aPorts = device::Host::getInstance().getAudioOutputPorts();
             for (size_t i = 0; i < aPorts.size(); i++) {
-                list.emplace_back(aPorts.at(i).getName());
+                list.emplace_back(str_to_enum<AudioOutput>(aPorts.at(i).getName().c_str()));
             }
         } catch (const device::Exception& e) {
             TRACE(Trace::Fatal, (_T("Exception caught %s"), e.what()));
@@ -47,13 +49,13 @@ namespace Plugin {
         }
 
         if (result == Core::ERROR_NONE) {
-            supportedAudioPorts = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(list));
+            audioOutputs = (Core::Service<RPC::IteratorType<IAudioOutputIterator>>::Create<IAudioOutputIterator>(list));
         }
 
         return result;
     }
 
-    uint32_t DeviceAudioCapabilities::AudioCapabilities(const string& audioPort, Exchange::IDeviceAudioCapabilities::IAudioCapabilityIterator*& audioCapabilities) const
+    uint32_t DeviceAudioCapabilities::AudioCapabilities(const AudioOutput audioOutput /* @in */, IAudioCapabilityIterator*& audioCapabilities /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
@@ -62,7 +64,9 @@ namespace Plugin {
         int capabilities = dsAUDIOSUPPORT_NONE;
 
         try {
-            auto strAudioPort = audioPort.empty() ? device::Host::getInstance().getDefaultAudioPortName() : audioPort;
+            std::string strAudioPort = enum_to_str(audioOutput);
+            if (strAudioPort.empty()) strAudioPort = device::Host::getInstance().getDefaultAudioPortName();
+
             auto& aPort = device::Host::getInstance().getAudioOutputPort(strAudioPort);
             aPort.getAudioCapabilities(&capabilities);
         } catch (const device::Exception& e) {
@@ -97,7 +101,7 @@ namespace Plugin {
         return result;
     }
 
-    uint32_t DeviceAudioCapabilities::MS12Capabilities(const string& audioPort, Exchange::IDeviceAudioCapabilities::IMS12CapabilityIterator*& ms12Capabilities) const
+    uint32_t DeviceAudioCapabilities::MS12Capabilities(const AudioOutput audioOutput /* @in */, IMS12CapabilityIterator*& ms12Capabilities /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
@@ -106,7 +110,9 @@ namespace Plugin {
         int capabilities = dsMS12SUPPORT_NONE;
 
         try {
-            auto strAudioPort = audioPort.empty() ? device::Host::getInstance().getDefaultAudioPortName() : audioPort;
+            std::string strAudioPort = enum_to_str(audioOutput);
+            if (strAudioPort.empty()) strAudioPort = device::Host::getInstance().getDefaultAudioPortName();
+
             auto& aPort = device::Host::getInstance().getAudioOutputPort(strAudioPort);
             aPort.getMS12Capabilities(&capabilities);
         } catch (const device::Exception& e) {
@@ -135,18 +141,19 @@ namespace Plugin {
         return result;
     }
 
-    uint32_t DeviceAudioCapabilities::SupportedMS12AudioProfiles(const string& audioPort, RPC::IStringIterator*& supportedMS12AudioProfiles) const
+
+    uint32_t DeviceAudioCapabilities::MS12AudioProfiles(const AudioOutput audioOutput /* @in */, IMS12ProfileIterator*& ms12Profiles /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
-
-        std::list<string> list;
+        std::list<MS12Profile> list;
 
         try {
-            auto strAudioPort = audioPort.empty() ? device::Host::getInstance().getDefaultAudioPortName() : audioPort;
+            std::string strAudioPort = enum_to_str(audioOutput);
+            if (strAudioPort.empty()) strAudioPort = device::Host::getInstance().getDefaultAudioPortName();
             auto& aPort = device::Host::getInstance().getAudioOutputPort(strAudioPort);
             const auto supportedProfiles = aPort.getMS12AudioProfileList();
             for (size_t i = 0; i < supportedProfiles.size(); i++) {
-                list.emplace_back(supportedProfiles.at(i));
+                list.emplace_back(str_to_enum<MS12Profile>(supportedProfiles.at(i).c_str()));
             }
         } catch (const device::Exception& e) {
             TRACE(Trace::Fatal, (_T("Exception caught %s"), e.what()));
@@ -159,7 +166,7 @@ namespace Plugin {
         }
 
         if (result == Core::ERROR_NONE) {
-            supportedMS12AudioProfiles = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(list));
+            ms12Profiles = (Core::Service<RPC::IteratorType<Exchange::IDeviceAudioCapabilities::IMS12ProfileIterator>>::Create<Exchange::IDeviceAudioCapabilities::IMS12ProfileIterator>(list));
         }
 
         return result;

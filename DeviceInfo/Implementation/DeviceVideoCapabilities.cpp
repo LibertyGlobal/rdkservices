@@ -7,6 +7,8 @@
 
 #include "UtilsIarm.h"
 
+#include "util.h"
+
 namespace WPEFramework {
 namespace Plugin {
 
@@ -26,11 +28,11 @@ namespace Plugin {
         }
     }
 
-    uint32_t DeviceVideoCapabilities::SupportedVideoDisplays(RPC::IStringIterator*& supportedVideoDisplays) const
+    uint32_t DeviceVideoCapabilities::VideoOutputs(IVideoOutputIterator*& videoOutputs /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
-        std::list<string> list;
+        std::list<VideoOutput> list;
 
         try {
             const auto& vPorts = device::Host::getInstance().getVideoOutputPorts();
@@ -47,11 +49,11 @@ namespace Plugin {
                  * needs to be filtered by name.
                  */
 
-                auto name = vPorts.at(i).getName();
-                if (std::find(list.begin(), list.end(), name) != list.end())
+                auto port = str_to_enum<VideoOutput>(vPorts.at(i).getName());
+                if (std::find(list.begin(), list.end(), port) != list.end())
                     continue;
 
-                list.emplace_back(name);
+                list.emplace_back(port);
             }
         } catch (const device::Exception& e) {
             TRACE(Trace::Fatal, (_T("Exception caught %s"), e.what()));
@@ -64,13 +66,13 @@ namespace Plugin {
         }
 
         if (result == Core::ERROR_NONE) {
-            supportedVideoDisplays = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(list));
+            videoOutputs = (Core::Service<RPC::IteratorType<IVideoOutputIterator>>::Create<IVideoOutputIterator>(list));
         }
 
         return result;
     }
 
-    uint32_t DeviceVideoCapabilities::HostEDID(string& edid) const
+    uint32_t DeviceVideoCapabilities::HostEDID(string& edid /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
@@ -91,7 +93,6 @@ namespace Plugin {
 
         if (result == Core::ERROR_NONE) {
             // convert to base64
-
             if (edidVec.size() > (size_t)std::numeric_limits<uint16_t>::max()) {
                 result = Core::ERROR_GENERAL;
             } else {
@@ -104,14 +105,15 @@ namespace Plugin {
         return result;
     }
 
-    uint32_t DeviceVideoCapabilities::DefaultResolution(const string& videoDisplay, string& defaultResolution) const
+    uint32_t DeviceVideoCapabilities::DefaultResolution(const VideoOutput videoOutput /* @in */, ScreenResolution& defaultResolution /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
         try {
-            auto strVideoPort = videoDisplay.empty() ? device::Host::getInstance().getDefaultVideoPortName() : videoDisplay;
+            std::string strVideoPort = enum_to_str(videoOutput);
+            if (strVideoPort.empty()) strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
             auto& vPort = device::Host::getInstance().getVideoOutputPort(strVideoPort);
-            defaultResolution = vPort.getDefaultResolution().getName();
+            defaultResolution = str_to_enum<ScreenResolution>(vPort.getDefaultResolution().getName().c_str());
         } catch (const device::Exception& e) {
             TRACE(Trace::Fatal, (_T("Exception caught %s"), e.what()));
             result = Core::ERROR_GENERAL;
@@ -125,18 +127,19 @@ namespace Plugin {
         return result;
     }
 
-    uint32_t DeviceVideoCapabilities::SupportedResolutions(const string& videoDisplay, RPC::IStringIterator*& supportedResolutions) const
+    uint32_t DeviceVideoCapabilities::Resolutions(const VideoOutput videoOutput /* @in */, IScreenResolutionIterator*& resolutions /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
-        std::list<string> list;
+        std::list<ScreenResolution> list;
 
         try {
-            auto strVideoPort = videoDisplay.empty() ? device::Host::getInstance().getDefaultVideoPortName() : videoDisplay;
+            std::string strVideoPort = enum_to_str(videoOutput);
+            if (strVideoPort.empty()) strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
             auto& vPort = device::Host::getInstance().getVideoOutputPort(strVideoPort);
             const auto resolutions = device::VideoOutputPortConfig::getInstance().getPortType(vPort.getType().getId()).getSupportedResolutions();
             for (size_t i = 0; i < resolutions.size(); i++) {
-                list.emplace_back(resolutions.at(i).getName());
+                list.emplace_back(str_to_enum<ScreenResolution>(resolutions.at(i).getName()));
             }
         } catch (const device::Exception& e) {
             TRACE(Trace::Fatal, (_T("Exception caught %s"), e.what()));
@@ -149,25 +152,27 @@ namespace Plugin {
         }
 
         if (result == Core::ERROR_NONE) {
-            supportedResolutions = (Core::Service<RPC::StringIterator>::Create<RPC::IStringIterator>(list));
+            resolutions = (Core::Service<RPC::IteratorType<IScreenResolutionIterator>>::Create<IScreenResolutionIterator>(list));
         }
 
         return result;
     }
 
-    uint32_t DeviceVideoCapabilities::SupportedHdcp(const string& videoDisplay, Exchange::IDeviceVideoCapabilities::CopyProtection& supportedHDCPVersion) const
+    uint32_t DeviceVideoCapabilities::Hdcp(const VideoOutput videoOutput /* @in */, CopyProtection& hdcpVersion /* @out */) const
     {
         uint32_t result = Core::ERROR_NONE;
 
         try {
-            auto strVideoPort = videoDisplay.empty() ? device::Host::getInstance().getDefaultVideoPortName() : videoDisplay;
-            auto& vPort = device::VideoOutputPortConfig::getInstance().getPort(strVideoPort);
+            std::string strVideoPort = enum_to_str(videoOutput);
+            if (strVideoPort.empty()) strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
+            auto& vPort = device::Host::getInstance().getVideoOutputPort(strVideoPort);
+
             switch (vPort.getHDCPProtocol()) {
             case dsHDCP_VERSION_2X:
-                supportedHDCPVersion = Exchange::IDeviceVideoCapabilities::CopyProtection::HDCP_22;
+                hdcpVersion = Exchange::IDeviceVideoCapabilities::CopyProtection::HDCP_22;
                 break;
             case dsHDCP_VERSION_1X:
-                supportedHDCPVersion = Exchange::IDeviceVideoCapabilities::CopyProtection::HDCP_14;
+                hdcpVersion = Exchange::IDeviceVideoCapabilities::CopyProtection::HDCP_14;
                 break;
             default:
                 result = Core::ERROR_GENERAL;
@@ -182,6 +187,25 @@ namespace Plugin {
             result = Core::ERROR_GENERAL;
         }
 
+        return result;
+    }
+
+    uint32_t DeviceVideoCapabilities::HDR(bool& supportsHDR /*@out*/) const
+    {
+        uint32_t result = Core::ERROR_GENERAL;
+        supportsHDR = false;
+        return result;
+    }
+    uint32_t DeviceVideoCapabilities::Atmos(bool& supportsAtmos /*@out*/) const
+    {
+        uint32_t result = Core::ERROR_GENERAL;
+        supportsAtmos = false;
+        return result;
+    }
+    uint32_t DeviceVideoCapabilities::CEC(bool& supportsCEC /*@out*/) const
+    {
+        uint32_t result = Core::ERROR_GENERAL;
+        supportsCEC = false;
         return result;
     }
 }

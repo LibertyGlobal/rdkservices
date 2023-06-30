@@ -31,6 +31,8 @@ find_package(IARMBus)
 add_library(${MODULE_NAME} SHARED
         DeviceInfo.cpp
         DeviceInfoJsonRpc.cpp
+        Implementation/DeviceAudioCapabilities.cpp
+        Implementation/DeviceVideoCapabilities.cpp
         Implementation/FirmwareVersion.cpp
         Implementation/DeviceInfo.cpp
         Module.cpp)

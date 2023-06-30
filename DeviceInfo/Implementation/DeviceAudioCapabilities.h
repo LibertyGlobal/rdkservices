@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Module.h"
-#include <interfaces/IDeviceInfo2.h>
+#include <interfaces/IDeviceInfo.h>
 
 namespace WPEFramework {
 namespace Plugin {
@@ -19,10 +19,10 @@ namespace Plugin {
 
     private:
         // IDeviceAudioCapabilities interface
-        uint32_t SupportedAudioPorts(RPC::IStringIterator*& supportedAudioPorts) const override;
-        uint32_t AudioCapabilities(const string& audioPort, Exchange::IDeviceAudioCapabilities::IAudioCapabilityIterator*& audioCapabilities) const override;
-        uint32_t MS12Capabilities(const string& audioPort, Exchange::IDeviceAudioCapabilities::IMS12CapabilityIterator*& ms12Capabilities) const override;
-        uint32_t SupportedMS12AudioProfiles(const string& audioPort, RPC::IStringIterator*& supportedMS12AudioProfiles) const override;
+        uint32_t AudioOutputs(IAudioOutputIterator*& audioOutputs /* @out */) const override;
+        uint32_t AudioCapabilities(const AudioOutput audioOutput /* @in */, IAudioCapabilityIterator*& audioCapabilities /* @out */) const override;
+        uint32_t MS12Capabilities(const AudioOutput audioOutput /* @in */, IMS12CapabilityIterator*& ms12Capabilities /* @out */) const override;
+        uint32_t MS12AudioProfiles(const AudioOutput audioOutput /* @in */, IMS12ProfileIterator*& ms12Profiles /* @out */) const override;
     };
 }
 }

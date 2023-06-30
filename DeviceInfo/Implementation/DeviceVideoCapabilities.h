@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Module.h"
-#include <interfaces/IDeviceInfo2.h>
+#include <interfaces/IDeviceInfo.h>
 
 namespace WPEFramework {
 namespace Plugin {
@@ -19,11 +19,14 @@ namespace Plugin {
 
     private:
         // IDeviceVideoCapabilities interface
-        uint32_t SupportedVideoDisplays(RPC::IStringIterator*& supportedVideoDisplays) const override;
-        uint32_t HostEDID(string& edid) const override;
-        uint32_t DefaultResolution(const string& videoDisplay, string& defaultResolution) const override;
-        uint32_t SupportedResolutions(const string& videoDisplay, RPC::IStringIterator*& supportedResolutions) const override;
-        uint32_t SupportedHdcp(const string& videoDisplay, Exchange::IDeviceVideoCapabilities::CopyProtection& supportedHDCPVersion) const override;
+        uint32_t VideoOutputs(IVideoOutputIterator*& videoOutputs /* @out */) const override;
+        uint32_t DefaultResolution(const VideoOutput videoOutput /* @in */, ScreenResolution& defaultResolution /* @out */) const override;
+        uint32_t Resolutions(const VideoOutput videoOutput /* @in */, IScreenResolutionIterator*& resolutions /* @out */) const override;
+        uint32_t Hdcp(const VideoOutput videoOutput /* @in */, CopyProtection& hdcpVersion /* @out */) const override;
+        uint32_t HostEDID(string& edid /* @out */) const override;
+        uint32_t HDR(bool& supportsHDR /*@out*/) const override;
+        uint32_t Atmos(bool& supportsAtmos /*@out*/) const override;
+        uint32_t CEC(bool& supportsCEC /*@out*/) const override;
     };
 }
 }
