@@ -375,7 +375,7 @@ static void handle_dbus_event(GDBusProxy *proxy,
     }
     else
     {
-        LOGINFO("handle_dbus_event: unsupported event; sender_name: %s signal_name: %s, num_params: %zu" , sender_name, _signal_name, num_params);
+        LOGINFO("handle_dbus_event: unsupported event; sender_name: %s signal_name: %s, num_params: %u" , sender_name, _signal_name, num_params);
     }
 }
 #endif
