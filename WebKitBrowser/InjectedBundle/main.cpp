@@ -119,8 +119,6 @@ public:
 
     void Deinitialize()
     {
-        Messaging::MessageUnit::Instance().Close();
-
 #if defined(UPDATE_TZ_FROM_FILE)
         _tzSupport.Deinitialize();
 #endif
