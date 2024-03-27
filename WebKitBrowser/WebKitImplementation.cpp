@@ -2846,6 +2846,8 @@ static GSourceFuncs _handlerIntervention =
             WKPreferencesSetAllowRunningOfInsecureContent(preferences, _allowMixedContent);
             WKPreferencesSetAllowDisplayOfInsecureContent(preferences, _allowMixedContent);
 
+            WKPreferencesSetDeveloperExtrasEnabled(preferences, true);
+
             // WebSecurity
             WKPreferencesSetWebSecurityEnabled(preferences, !_allowMixedContent);
 
