@@ -113,6 +113,16 @@ void onURLChangeWorkarounds(const std::string &url, WKPageRef page)
         SYSLOG(Logging::Notification, (_T("Deactivating convert playready key ID for Shaka")));
         WKContextSetEnv(WKPageGetContext(page), WKStringCreateWithUTF8CString("CONVERT_PLAYREADY_KEY_ID_FOR_SHAKA"), WKStringCreateWithUTF8CString("0"), true, false);
     }
+    fprintf(stderr,"Suresh onURLChangeWorkarounds : URL: %s", url);
+    if (url.find("com.libertyglobal.app.teletext") != std::string::npos) {
+        SYSLOG(Logging::Notification, (_T("Activating Teletext for flavor CAIRO_GL_FLAVOR_ES3")));
+        fprintf(stderr, "Suresh Activating Teletext for flavor CAIRO_GL_FLAVOR_ES3");
+        WKContextSetEnv(WKPageGetContext(page), WKStringCreateWithUTF8CString("IS_CAIRO_GL_FLAVOR_ENABLED_FOR_TELETEXT"), WKStringCreateWithUTF8CString("1"), true, false);
+    } else {
+        SYSLOG(Logging::Notification, (_T("Deactivating teletext for for flavor CAIRO_GL_FLAVOR_ES3")));
+        fprintf(stderr, "Suresh Deactivating Teletext for flavor CAIRO_GL_FLAVOR_ES3");
+        WKContextSetEnv(WKPageGetContext(page), WKStringCreateWithUTF8CString("IS_CAIRO_GL_FLAVOR_ENABLED_FOR_TELETEXT"), WKStringCreateWithUTF8CString("0"), true, false);
+    }
 }
 
 std::string getMainConfigValue(const std::string& key)
