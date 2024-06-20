@@ -39,7 +39,6 @@ public:
     uint32_t getContainerState(const JsonObject &parameters, JsonObject &response);
     uint32_t getContainerInfo(const JsonObject &parameters, JsonObject &response);
     uint32_t startContainer(const JsonObject &parameters, JsonObject &response);
-    uint32_t startContainerFromCryptedBundle(const JsonObject &parameters, JsonObject &response);
     uint32_t startContainerFromDobbySpec(const JsonObject &parameters, JsonObject &response);
     uint32_t stopContainer(const JsonObject &parameters, JsonObject &response);
     uint32_t pauseContainer(const JsonObject &parameters, JsonObject &response);

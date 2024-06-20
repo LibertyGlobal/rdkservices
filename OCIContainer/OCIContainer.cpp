@@ -8,7 +8,7 @@
 
 #define API_VERSION_NUMBER_MAJOR 1
 #define API_VERSION_NUMBER_MINOR 0
-#define API_VERSION_NUMBER_PATCH 0
+#define API_VERSION_NUMBER_PATCH 2
 
 namespace WPEFramework
 {
@@ -42,7 +42,6 @@ OCIContainer::OCIContainer()
     Register("getContainerState", &OCIContainer::getContainerState, this);
     Register("getContainerInfo", &OCIContainer::getContainerInfo, this);
     Register("startContainer", &OCIContainer::startContainer, this);
-    Register("startContainerFromCryptedBundle", &OCIContainer::startContainerFromCryptedBundle, this);
     Register("startContainerFromDobbySpec", &OCIContainer::startContainerFromDobbySpec, this);
     Register("stopContainer", &OCIContainer::stopContainer, this);
     Register("pauseContainer", &OCIContainer::pauseContainer, this);
@@ -92,7 +91,6 @@ void OCIContainer::Deinitialize(PluginHost::IShell *service)
     Unregister("getContainerState");
     Unregister("getContainerInfo");
     Unregister("startContainer");
-    Unregister("startContainerFromCryptedBundle");
     Unregister("startContainerFromDobbySpec");
     Unregister("stopContainer");
     Unregister("pauseContainer");
@@ -245,6 +243,36 @@ uint32_t OCIContainer::getContainerInfo(const JsonObject &parameters, JsonObject
     returnResponse(true);
 }
 
+static bool is_encrypted(const std::string &bundlePath) {
+    struct stat st;
+
+    std::string str = bundlePath + "rootfs.img";
+
+    if (stat(str.c_str(), &st))
+    {
+        return false;
+    }
+
+    if (!(st.st_mode & S_IFREG || st.st_mode & S_IFLNK))
+    {
+        return false;
+    }
+
+    str = bundlePath + "config.json.jwt";
+
+    if (stat(str.c_str(), &st))
+    {
+        return false;
+    }
+
+    if (!(st.st_mode & S_IFREG || st.st_mode & S_IFLNK))
+    {
+        return false;
+    }
+
+    return true;
+}
+
 /**
  * @brief Starts a container from an OCI bundle
  *
@@ -270,71 +298,13 @@ uint32_t OCIContainer::startContainer(const JsonObject &parameters, JsonObject &
     // Currently unsupported, see DobbyProxy::startContainerFromBundle().
     std::list<int> emptyList;
 
-    int descriptor;
-    // If no additional arguments, start the container
-    if ((command == "null" || command.empty()) && (westerosSocket == "null" || westerosSocket.empty()))
-    {
-        descriptor = mDobbyProxy->startContainerFromBundle(id, bundlePath, emptyList);
-    }
-    else
-    {
-        // Dobby expects empty strings if values not set
-        if (command == "null" || command.empty())
-        {
-            command = "";
-        }
-        if (westerosSocket == "null" || westerosSocket.empty())
-        {
-            westerosSocket = "";
-        }
-        descriptor = mDobbyProxy->startContainerFromBundle(id, bundlePath, emptyList, command, westerosSocket);
-    }
-
-    // startContainer returns -1 on failure
-    if (descriptor <= 0)
-    {
-        LOGERR("Failed to start container - internal Dobby error.");
-        returnResponse(false);
-    }
-
-    response["descriptor"] = descriptor;
-    returnResponse(true);
-}
-
-/**
- * @brief Starts a container from a crypted OCI bundle
- *
- * @param[in]  parameters   - Must include 'containerId', 'rootFSPath' and 'configFilePath'.
- * @param[out] response     - Dobby descriptor of the started container.
- *
- * @return                  A code indicating success.
- */
-uint32_t OCIContainer::startContainerFromCryptedBundle(const JsonObject &parameters, JsonObject &response)
-{
-    LOGINFO("Start container from crypted OCI bundle");
-
-    // To start a container, we need a path to an OCI bundle and an ID for the container
-    returnIfStringParamNotFound(parameters, "containerId");
-    returnIfStringParamNotFound(parameters, "rootFSPath");
-    returnIfStringParamNotFound(parameters, "configFilePath");
-
-    std::string id = parameters["containerId"].String();
-    std::string rootfsPath = parameters["rootFSPath"].String();
-    std::string configPath = parameters["configFilePath"].String();
-    std::string command = parameters["command"].String();
-    std::string westerosSocket = parameters["westerosSocket"].String();
-
-    // Can be used to pass file descriptors to container construction.
-    // Currently unsupported, see DobbyProxy::startContainerFromBundle().
-    std::list<int> emptyList;
-
-    int descriptor;
-
     std::string containerPath;
 
-    if (!mOmiProxy->mountCryptedBundle(id,
-                                       rootfsPath,
-                                       configPath,
+    const bool encrypted = is_encrypted(bundlePath);
+
+    if (encrypted && !mOmiProxy->mountCryptedBundle(id,
+                                       bundlePath + "rootfs.img",
+                                       bundlePath + "config.json.jwt",
                                        containerPath))
     {
         LOGERR("Failed to start container - sync mount request to omi failed.");
@@ -342,12 +312,18 @@ uint32_t OCIContainer::startContainerFromCryptedBundle(const JsonObject &paramet
         returnResponse(false);
     }
 
-    LOGINFO("Mount request to omi succeeded, contenerPath: %s", containerPath.c_str());
+    if (encrypted)
+    {
+        LOGINFO("Mount request to omi succeeded, contenerPath: %s", containerPath.c_str());
+    }
+
+    int descriptor;
 
     // If no additional arguments, start the container
     if ((command == "null" || command.empty()) && (westerosSocket == "null" || westerosSocket.empty()))
     {
-        descriptor = mDobbyProxy->startContainerFromBundle(id, containerPath, emptyList);
+        LOGINFO("startContainerFromBundle: id: %s, containerPath: %s", id.c_str(), encrypted ? containerPath.c_str() : bundlePath.c_str());
+        descriptor = mDobbyProxy->startContainerFromBundle(id, encrypted ? containerPath : bundlePath, emptyList);
     }
     else
     {
@@ -360,18 +336,23 @@ uint32_t OCIContainer::startContainerFromCryptedBundle(const JsonObject &paramet
         {
             westerosSocket = "";
         }
-        descriptor = mDobbyProxy->startContainerFromBundle(id, containerPath, emptyList, command, westerosSocket);
+
+        LOGINFO("startContainerFromBundle: id: %s, containerPath: %s, command: %s, westerosSocket: %s", id.c_str(), encrypted ? containerPath.c_str() : bundlePath.c_str(), command.c_str(), westerosSocket.c_str());
+        descriptor = mDobbyProxy->startContainerFromBundle(id, encrypted ? containerPath : bundlePath, emptyList, command, westerosSocket);
     }
 
     // startContainer returns -1 on failure
     if (descriptor <= 0)
     {
-        LOGERR("Failed to start container - internal Dobby error. Unmounting container.");
+        LOGERR("Failed to start container - internal Dobby error.");
 
-        if (!mOmiProxy->umountCryptedBundle(id.c_str())) {
+        if (encrypted && !mOmiProxy->umountCryptedBundle(id.c_str()))
+        {
             LOGERR("Failed to umount container %s - sync unmount request to omi failed.", id.c_str());
             response["error"] = "dobby start failed, unmount failed";
-        } else {
+        }
+        else
+        {
             response["error"] = "dobby start failed";
         }
 
@@ -715,7 +696,7 @@ const void OCIContainer::omiErrorListener(const std::string& id, omi::IOmiProxy:
     // Cast const void* back to OCIContainer* type to get 'this'
     OCIContainer* __this = const_cast<OCIContainer*>(reinterpret_cast<const OCIContainer*>(_this));
 
-    if (err == omi::IOmiProxy::ErrorType::verityFailed)
+    if (__this != nullptr && err == omi::IOmiProxy::ErrorType::verityFailed)
     {
         __this->onVerityFailed(id);
     }
