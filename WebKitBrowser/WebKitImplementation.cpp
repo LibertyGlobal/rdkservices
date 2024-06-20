@@ -2591,7 +2591,7 @@ static GSourceFuncs _handlerIntervention =
                 SYSLOG(Trace::Fatal, (_T("CRASH: WebProcess terminated due to memory limit: exiting ...")));
                 break;
             }
-            exit(1);
+            _exit(1);
         }
         static void closeCallback(WebKitWebView*, WebKitImplementation* browser)
         {
@@ -3321,8 +3321,8 @@ static GSourceFuncs _handlerIntervention =
 
     /* static */ void webProcessDidCrash(WKPageRef, const void*)
     {
-        SYSLOG(Trace::Fatal, (_T("CRASH: WebProcess crashed, exiting...")));
-        exit(1);
+        SYSLOG(Trace::Fatal, (_T("CRASH: WebProcess crashed, calling _exit()...")));
+        _exit(1);
     }
 #endif // !WEBKIT_GLIB_API
 } // namespace Plugin
