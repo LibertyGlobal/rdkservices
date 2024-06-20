@@ -1809,7 +1809,10 @@ static GSourceFuncs _handlerIntervention =
 
             urlValue(url);
 
-            if(!navigationStart)
+            const auto bootUrl = url.compare("https://widgets.metrological.com/lightning/liberty/2e3c4fc22f0d35e3eb7fdb47eb7d4658#boot") == 0;
+            TRACE_L1("bootUrl = %d", bootUrl);
+
+            if(!navigationStart && !bootUrl)
             {
                 std::unique_lock<std::mutex> lock{urlData_.mutex};
                 urlData_.result = Core::ERROR_NONE;
