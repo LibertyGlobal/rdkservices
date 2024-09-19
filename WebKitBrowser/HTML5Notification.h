@@ -20,7 +20,10 @@
 #ifndef __HTML5NOTIFICATION_H
 #define __HTML5NOTIFICATION_H
 
+#ifndef __CORE_MESSAGING__
+#define __CORE_MESSAGING__
 #include <tracing/tracing.h>
+#endif
 
 using namespace WPEFramework;
 
