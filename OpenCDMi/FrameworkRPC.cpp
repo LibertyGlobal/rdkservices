@@ -349,11 +349,15 @@ namespace Plugin {
                                 CDMi::SampleInfo sampleInfo;
                                 sampleInfo.scheme = static_cast<CDMi::EncryptionScheme>(EncScheme());
                                 EncPattern(sampleInfo.pattern.encrypted_blocks,sampleInfo.pattern.clear_blocks);
-                                sampleInfo.iv = const_cast<uint8_t *>(IVKey());
-                                sampleInfo.ivLength = IVKeyLength();
+                                sampleInfo.ivHighCount = 0;
+                                sampleInfo.ivLowCount = 0;
+                                sampleInfo.ivHigh = const_cast<uint64_t *>(IVKeyHigh(sampleInfo.ivHighCount));
+                                sampleInfo.ivLow  = const_cast<uint64_t *>(IVKeyLow(sampleInfo.ivLowCount));
                                 sampleInfo.keyId = const_cast<uint8_t *>(KeyId(sampleInfo.keyIdLength));
                                 sampleInfo.subSample = const_cast<CDMi::SubSampleInfo *>(SubSamples());
                                 sampleInfo.subSampleCount = SubSampleLength();
+                                sampleInfo.subSampleMappingCount = GetSubSampleMapCount();
+                                sampleInfo.subSampleMapping = GetSubSampleMap();
 
                                 uint16_t width = 0, height = 0;
                                 uint8_t type = 0;
