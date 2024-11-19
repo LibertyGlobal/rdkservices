@@ -364,6 +364,38 @@ public:
         return (Core::ERROR_NONE);
     }
 
+    uint32_t DimensionsInCentimeters (string& dimensions /* @out */) const override
+    {
+        try
+        {
+            std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
+            ::device::VideoOutputPort vPort = ::device::Host::getInstance().getVideoOutputPort(strVideoPort.c_str());
+            if (vPort.isDisplayConnected())
+            {
+                std::vector<uint8_t> edidVec;
+
+                vPort.getDisplay().getEDIDBytes(edidVec);
+
+                if(edidVec.size() > EDID_MAX_VERTICAL_SIZE)
+                {
+                    int width = edidVec[EDID_MAX_HORIZONTAL_SIZE];
+                    int height = edidVec[EDID_MAX_VERTICAL_SIZE];
+                    TRACE(Trace::Information, (_T("Width in cm= %d Height in cm = %d"), width, height));
+                    dimensions = std::to_string(width) + "x" + std::to_string(height);
+                }
+                else
+                {
+                    TRACE(Trace::Information, (_T("Failed to get Display Size!")));
+                }
+            }
+        }
+        catch (const device::Exception& err)
+        {
+            TRACE(Trace::Error, (_T("Exception during DeviceSetting library call. code = %d message = %s"), err.getCode(), err.what()));
+        }
+        return (Core::ERROR_NONE);
+    }
+
     uint32_t EDID (uint16_t& length /* @inout */, uint8_t data[] /* @out @length:length */) const override
     {
         vector<uint8_t> edidVec({'u','n','k','n','o','w','n' });
