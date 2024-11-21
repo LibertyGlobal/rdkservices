@@ -355,6 +355,15 @@ namespace Plugin {
                                 sampleInfo.subSample = const_cast<CDMi::SubSampleInfo *>(SubSamples());
                                 sampleInfo.subSampleCount = SubSampleLength();
 
+                                sampleInfo.multiBuf = GetMultiBuf();
+                                if(sampleInfo.multiBuf == true) {
+                                    sampleInfo.multiBufInfo.ivHigh = const_cast<uint64_t *>(IVKeyHigh(sampleInfo.multiBufInfo.ivHighCount));
+                                    sampleInfo.multiBufInfo.ivLow  = const_cast<uint64_t *>(IVKeyLow(sampleInfo.multiBufInfo.ivLowCount));
+                                    sampleInfo.multiBufInfo.subSampleMappingCount = GetSubSampleMapCount();
+                                    sampleInfo.multiBufInfo.subSampleMapping = GetSubSampleMap();
+                                    TRACE(Trace::Error, ("PRADEEP-RFC: ivHighCount[%d] ivLowCount[%d] subSampleMappingCount[%d]", sampleInfo.multiBufInfo.ivHighCount, sampleInfo.multiBufInfo.ivLowCount, sampleInfo.multiBufInfo.subSampleMappingCount));
+                                }
+
                                 uint16_t width = 0, height = 0;
                                 uint8_t type = 0;
                                 MediaProperties(height, width, type);
