@@ -3489,7 +3489,7 @@ static GSourceFuncs _handlerIntervention =
             g_signal_handlers_block_matched(webView, G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, browser);
             struct ExitJob : public Core::IDispatch
             {
-                virtual void Dispatch() { exit(1); }
+                void Dispatch() override { exit(1); }
             };
             Core::IWorkerPool::Instance().Submit(Core::ProxyType<Core::IDispatch>(Core::ProxyType<ExitJob>::Create()));
         }
