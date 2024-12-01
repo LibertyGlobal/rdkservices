@@ -186,6 +186,7 @@ find_package(CompileSettingsDebug CONFIG REQUIRED)
 find_package(WPEWebKit REQUIRED)
 find_package(WPEBackend REQUIRED)
 find_package(OpenSSL REQUIRED)
+find_package(CURL REQUIRED)
 
 add_library(${MODULE_NAME} SHARED
     Module.cpp
@@ -223,7 +224,10 @@ target_link_libraries(${PLUGIN_WEBKITBROWSER_IMPLEMENTATION}
         ${NAMESPACE}Definitions::${NAMESPACE}Definitions
         WPEBackend::WPEBackend
         WPEWebKit::WPEWebKit
-        OpenSSL::Crypto)
+        OpenSSL::Crypto
+        ${CURL_LIBRARIES})
+
+target_include_directories(${PLUGIN_WEBKITBROWSER_IMPLEMENTATION} PRIVATE ${CURL_INCLUDE_DIRS})
 
 if (PLUGIN_WEBKITBROWSER_ODH_TELEMETRY)
     find_package(OdhErrTelemetry REQUIRED)
