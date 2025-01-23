@@ -3012,8 +3012,8 @@ static GSourceFuncs _handlerIntervention =
 #ifdef WEBKIT_GLIB_API
             bool hdrCaps = GetHDRCapabilities();
             TRACE_L1("Setting HDR caps in IARM Event Handler: %d", hdrCaps);
-            webkit_settings_set_platform_hdr_capabilities(webkit_web_view_get_settings(_view), hdrCaps);
-            TRACE_L1("Getting HDR caps: %d", webkit_settings_get_platform_hdr_capabilities(webkit_web_view_get_settings(_view)));
+            webkit_settings_set_screen_supports_hdr(webkit_web_view_get_settings(_view), hdrCaps);
+            TRACE_L1("Getting HDR caps: %d", webkit_settings_get_screen_supports_hdr(webkit_web_view_get_settings(_view)));
 #endif
 	}
 
@@ -3951,7 +3951,7 @@ static GSourceFuncs _handlerIntervention =
             }
 
 #ifdef WEBKIT_GLIB_API
-            webkit_settings_set_platform_hdr_capabilities(webkit_web_view_get_settings(_view), GetHDRCapabilities());
+            webkit_settings_set_screen_supports_hdr(webkit_web_view_get_settings(_view), GetHDRCapabilities());
 #endif
 
             auto* userContentManager = webkit_web_view_get_user_content_manager(_view);
