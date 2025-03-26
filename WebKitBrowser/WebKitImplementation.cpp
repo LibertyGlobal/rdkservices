@@ -1043,12 +1043,6 @@ static GSourceFuncs _handlerIntervention =
             {
                 TRACE(Trace::Information, (_T("GCCleaner: running GC now")));
                 webkit_web_context_garbage_collect_javascript_objects(webkit_web_view_get_context(_browser._view));
-                if (gc_executed_since_last_start == 0) {
-                    fprintf(stderr, "xaxa GCCleaner timerCallback: suspend\n");
-                    webkit_web_view_suspend(_browser._view);
-                    _browser.OnStateChange(PluginHost::IStateControl::SUSPENDED);
-                    _browser.CheckWebProcess();
-                }
                 ++gc_executed_since_last_start;
                 return gc_executed_since_last_start.load() < GCCLEANER_CLEANUP_TIMES;
             }
@@ -2720,10 +2714,11 @@ static GSourceFuncs _handlerIntervention =
                 ODH_WARNING("WPE0040", WPE_CONTEXT_WITH_URL(URL.c_str()), "New URL: %s", URL.c_str());
                 TRACE_L1("Starting GCCleaner");
                 gcCleaner->start();
-                // if (!isSuspended()) Suspend();
+                if (!isSuspended()) Suspend();
             } else {
                 TRACE_L1("Stopping GCCleaner");
-                gcCleaner->stop();                
+                gcCleaner->stop();
+                if (isSuspended()) Resume();
             }
 
             if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
@@ -2762,15 +2757,8 @@ static GSourceFuncs _handlerIntervention =
                     index++;
                 }
             }
-            // if(!isCurrentUrlBootUrl && isNewUrlBootUrl && !_bootUrl.empty()) {
-                
 
-            if (isCurrentUrlBootUrl && !isNewUrlBootUrl) {
-                fprintf(stderr, "xaxa OnUrl: Resume\n");
-                if (_state == PluginHost::IStateControl::SUSPENDED) Resume();
-            }
             _adminLock.Unlock();
-
         }
 
 #ifndef WEBKIT_GLIB_API
@@ -3534,7 +3522,7 @@ static GSourceFuncs _handlerIntervention =
 
                         TRACE_GLOBAL(Trace::Information, (_T("Internal Suspend Notification took %d mS."), static_cast<uint32_t>(Core::Time::Now().Ticks() - object->_time)));
 
-                        object->CheckWebProcess();
+                        // object->CheckWebProcess();
 
                         return FALSE;
                     },
