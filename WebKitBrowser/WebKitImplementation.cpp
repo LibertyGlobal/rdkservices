@@ -2707,9 +2707,13 @@ static GSourceFuncs _handlerIntervention =
                 ODH_WARNING("WPE0040", WPE_CONTEXT_WITH_URL(URL.c_str()), "New URL: %s", URL.c_str());
                 TRACE_L1("Starting GCCleaner");
                 gcCleaner->start();
+                // this clears IsVisible flag in wpe, so painting is stopped (see DrawingAreaCoordinatedGraphics::activityStateDidChange)
+                Hide(true);
             } else {
                 TRACE_L1("Stopping GCCleaner");
                 gcCleaner->stop();
+                // this sets IsVisible flag in wpe, so that painting can resume (see DrawingAreaCoordinatedGraphics::activityStateDidChange)
+                Hide(false);
             }
 
             if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
