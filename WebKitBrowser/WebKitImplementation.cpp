@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
+#include <sys/prctl.h>
 
 #include "Module.h"
 
@@ -1116,6 +1117,15 @@ static GSourceFuncs _handlerIntervention =
             , _userScripts()
             , _userStyleSheets()
         {
+            // setup RIALTO_SOCKET_PATH env variable, should be propagated to WPEWebProcess
+            // final solution should be probably yet different - that could be 16 bytes long only
+            char processName[128];
+            char socketPath[256];
+            memset(processName, 0, 128);
+            memset(socketPath, 0, 256);
+            prctl(PR_GET_NAME, reinterpret_cast<unsigned long>(const_cast<char *>(processName)), NULL, NULL, NULL);
+            sprintf(socketPath, "/var/run/rialto/%s", processName);
+            Core::SystemInfo::SetEnvironment(_T("RIALTO_SOCKET_PATH"), socketPath);
             // Register an @Exit, in case we are killed, with an incorrect ref count !!
             if (atexit(CloseDown) != 0) {
                 TRACE(Trace::Information, (_T("Could not register @exit handler. Error: %d."), errno));
