@@ -3044,7 +3044,7 @@ static GSourceFuncs _handlerIntervention =
             IARM_Result_t res;
             int isRegistered = 0;
             res = IARM_Bus_IsConnected(waylandWPEWebProcessName, &isRegistered);
-            if (res == IARM_RESULT_SUCCESS && !isRegistered)
+            if (res != IARM_RESULT_SUCCESS && !isRegistered)
             {
                 TRACE_L1("Initializing IARM Bus");
                 err = IARM_Bus_Init(waylandWPEWebProcessName);
