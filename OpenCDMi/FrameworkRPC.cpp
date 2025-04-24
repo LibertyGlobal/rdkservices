@@ -1144,6 +1144,36 @@ namespace Plugin {
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
             }
 
+            Exchange::OCDM_RESULT InitializeCtx(const std::string& keySystem) override
+            {
+                auto system = _parent.KeySystem(keySystem);
+                auto result {Exchange::OCDM_RESULT::OCDM_S_FALSE};
+                if (system) {
+                    CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(system);
+                    if (systemExt) {
+                        result = (Exchange::OCDM_RESULT)systemExt->InitializeCtx(keySystem);
+                    } else {
+                        result = Exchange::OCDM_RESULT::OCDM_INTERFACE_NOT_IMPLEMENTED;
+                    }
+                }
+                return result;
+            }
+
+            Exchange::OCDM_RESULT DeinitializeCtx(const std::string& keySystem, bool cleanOnDestroy) override
+            {
+                auto system = _parent.KeySystem(keySystem);
+                auto result {Exchange::OCDM_RESULT::OCDM_S_FALSE};
+                if (system) {
+                    CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(system);
+                    if (systemExt) {
+                        result = (Exchange::OCDM_RESULT)systemExt->DeinitializeCtx(keySystem, cleanOnDestroy);
+                    } else {
+                        result = Exchange::OCDM_RESULT::OCDM_INTERFACE_NOT_IMPLEMENTED;
+                    }
+                }
+                return result;
+            }
+
             void GetSessionsDesignators(std::list<string> & list) {
                 _adminLock.Lock();
                 list.clear();
