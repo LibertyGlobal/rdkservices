@@ -1174,6 +1174,16 @@ namespace Plugin {
                 return result;
             }
 
+            Exchange::OCDM_RESULT CleanSecureStore(const std::string& keySystem) override
+            {
+                Exchange::OCDM_RESULT result = Exchange::OCDM_RESULT::OCDM_S_FALSE;
+                CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
+                if (systemExt) {
+                    result = (Exchange::OCDM_RESULT)systemExt->CleanSecureStore(keySystem);
+                }
+                return result;
+            }
+
             void GetSessionsDesignators(std::list<string> & list) {
                 _adminLock.Lock();
                 list.clear();
