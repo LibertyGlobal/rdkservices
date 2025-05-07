@@ -39,6 +39,13 @@
 #define FPD_LED_DEVICE_FACTORY_RESET "FACTORY_RESET"
 #define FPD_LED_DEVICE_USB_UPGRADE "USB_UPGRADE"
 #define FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR "DOWNLOAD_ERROR"
+#define FPD_LED_DEVICE_BOOT_IN_PROGRESS "BOOT_IN_PROGRESS"
+#define FPD_LED_DEVICE_COLDSTANDBY "COLDSTANDBY"
+#define FPD_LED_DEVICE_PSU_FAILURE "PSU_FAILURE"
+#define FPD_LED_DEVICE_WPS_SES_OVERLAP "WPS_SES_OVERLAP"
+#define FPD_LED_DEVICE_IP_ACQUIRED "IP_ACQUIRED"
+#define FPD_LED_DEVICE_NO_IP "NO_IP"
+#define FPD_LED_DEVICE_RCU_COMMAND "RCU_COMMAND"
 
 
 
@@ -146,6 +153,13 @@ namespace WPEFramework
                     if(states & (1<<dsFPD_LED_DEVICE_FACTORY_RESET))supportedLEDStates.emplace_back(FPD_LED_DEVICE_FACTORY_RESET);
                     if(states & (1<<dsFPD_LED_DEVICE_USB_UPGRADE))supportedLEDStates.emplace_back(FPD_LED_DEVICE_USB_UPGRADE);
                     if(states & (1<<dsFPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR))supportedLEDStates.emplace_back(FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR);
+                    if(states & (1<<dsFPD_LED_DEVICE_BOOT_IN_PROGRESS))supportedLEDStates.emplace_back(FPD_LED_DEVICE_BOOT_IN_PROGRESS);
+                    if(states & (1<<dsFPD_LED_DEVICE_COLDSTANDBY))supportedLEDStates.emplace_back(FPD_LED_DEVICE_COLDSTANDBY);
+                    if(states & (1<<dsFPD_LED_DEVICE_PSU_FAILURE))supportedLEDStates.emplace_back(FPD_LED_DEVICE_PSU_FAILURE);
+                    if(states & (1<<dsFPD_LED_DEVICE_WPS_SES_OVERLAP))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_SES_OVERLAP);
+                    if(states & (1<<dsFPD_LED_DEVICE_IP_ACQUIRED))supportedLEDStates.emplace_back(FPD_LED_DEVICE_IP_ACQUIRED);
+                    if(states & (1<<dsFPD_LED_DEVICE_NO_IP))supportedLEDStates.emplace_back(FPD_LED_DEVICE_NO_IP);
+                    if(states & (1<<dsFPD_LED_DEVICE_RCU_COMMAND))supportedLEDStates.emplace_back(FPD_LED_DEVICE_RCU_COMMAND);
                     success = true;
                 } else {
                         LOGERR("dsFPGetSupportedLEDStates returned error %d", err);
@@ -201,6 +215,27 @@ namespace WPEFramework
                         break;
                     case dsFPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR:
                         response["state"] = FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR;
+                        break;
+                    case dsFPD_LED_DEVICE_BOOT_IN_PROGRESS:
+                        response["state"] = FPD_LED_DEVICE_BOOT_IN_PROGRESS;
+                        break;
+                    case dsFPD_LED_DEVICE_COLDSTANDBY:
+                        response["state"] = FPD_LED_DEVICE_COLDSTANDBY;
+                        break;
+                    case dsFPD_LED_DEVICE_PSU_FAILURE:
+                        response["state"] = FPD_LED_DEVICE_PSU_FAILURE;
+                        break;
+                    case dsFPD_LED_DEVICE_WPS_SES_OVERLAP:
+                        response["state"] = FPD_LED_DEVICE_WPS_SES_OVERLAP;
+                        break;
+                    case dsFPD_LED_DEVICE_IP_ACQUIRED:
+                        response["state"] = FPD_LED_DEVICE_IP_ACQUIRED;
+                        break;
+                    case dsFPD_LED_DEVICE_NO_IP:
+                        response["state"] = FPD_LED_DEVICE_NO_IP;
+                        break;
+                    case dsFPD_LED_DEVICE_RCU_COMMAND:
+                        response["state"] = FPD_LED_DEVICE_RCU_COMMAND;
                         break;
 
                     default :
@@ -264,6 +299,27 @@ namespace WPEFramework
                 } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR, strlen(FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR)) && 
 				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR)) ){
                     state = dsFPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_BOOT_IN_PROGRESS, strlen(FPD_LED_DEVICE_BOOT_IN_PROGRESS)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_BOOT_IN_PROGRESS)) ){
+                    state = dsFPD_LED_DEVICE_BOOT_IN_PROGRESS;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_COLDSTANDBY, strlen(FPD_LED_DEVICE_COLDSTANDBY)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_COLDSTANDBY)) ){
+                    state = dsFPD_LED_DEVICE_COLDSTANDBY;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_PSU_FAILURE, strlen(FPD_LED_DEVICE_PSU_FAILURE)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_PSU_FAILURE)) ){
+                    state = dsFPD_LED_DEVICE_PSU_FAILURE;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_WPS_SES_OVERLAP, strlen(FPD_LED_DEVICE_WPS_SES_OVERLAP)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_WPS_SES_OVERLAP)) ){
+                    state = dsFPD_LED_DEVICE_WPS_SES_OVERLAP;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_IP_ACQUIRED, strlen(FPD_LED_DEVICE_IP_ACQUIRED)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_IP_ACQUIRED)) ){
+                    state = dsFPD_LED_DEVICE_IP_ACQUIRED;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_NO_IP, strlen(FPD_LED_DEVICE_NO_IP)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_NO_IP)) ){
+                    state = dsFPD_LED_DEVICE_NO_IP;
+                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_RCU_COMMAND, strlen(FPD_LED_DEVICE_RCU_COMMAND)) &&
+                                (strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_RCU_COMMAND)) ){
+                    state = dsFPD_LED_DEVICE_RCU_COMMAND;
                 } else {
                     //Invalid parameter
                     LOGERR("UNKNOWN state : %s", strLedState.c_str());
