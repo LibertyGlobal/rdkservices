@@ -2715,11 +2715,12 @@ static GSourceFuncs _handlerIntervention =
             if(!isCurrentUrlBootUrl && isNewUrlBootUrl && !_bootUrl.empty()) {
                 TRACE_L1("New URL: %s", URL.c_str());
                 ODH_WARNING("WPE0040", WPE_CONTEXT_WITH_URL(URL.c_str()), "New URL: %s", URL.c_str());
-                TRACE_L1("Starting GCCleaner");
-                gcCleaner->start();
+                TRACE_L1("ARRISEOS-47714: Don't start GCCleaner");
+                //TRACE_L1("Starting GCCleaner");
+                //gcCleaner->start();
             } else {
-                TRACE_L1("Stopping GCCleaner");
-                gcCleaner->stop();
+                //TRACE_L1("Stopping GCCleaner");
+                //gcCleaner->stop();
             }
 
             if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
