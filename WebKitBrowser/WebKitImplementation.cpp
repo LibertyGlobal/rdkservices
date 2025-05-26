@@ -1137,6 +1137,7 @@ static GSourceFuncs _handlerIntervention =
             , _compliant(false)
             , _configurationCompleted(false)
             , _webProcessCheckInProgress(false)
+	    , _isCrossDomainNavigation(false)
             , _unresponsiveReplyNum(0)
             , _frameCount(0)
             , _lastDumpTime(g_get_monotonic_time())
@@ -2734,6 +2735,8 @@ static GSourceFuncs _handlerIntervention =
             const bool isNewUrlBlankUrl = URL.find("about:blank") != string::npos;
             const bool isNewUrlMetroSubdomain = URL.find(metroDomain) != string::npos;
 
+	    _isCrossDomainNavigation = (extractDomain(URL) != extractDomain(urlValue()));
+
             urlValue(URL);
 
             if(!isCurrentUrlBootUrl && isNewUrlBootUrl && !_bootUrl.empty()) {
@@ -2764,6 +2767,7 @@ static GSourceFuncs _handlerIntervention =
                     TRACE_L1("URL updated, storing new loadResult URL: %s", URL.c_str());
                     urlData_.loadResult.loadUrl = URL;
                 }
+
             }
 
             _adminLock.Lock();
@@ -2808,6 +2812,15 @@ static GSourceFuncs _handlerIntervention =
                 status = Core::ERROR_INCORRECT_URL;
             }
             notifyUrlLoadResult(URL, status);
+
+	    if (_isCrossDomainNavigation) {
+		        TRACE_L1("Cross Domain navigation detected");
+                        int ret = system("/bin/systemctl start wpe-web-process-swap.service");
+                        if (ret != 0) {
+			    TRACE_L1("Unable to start wpe-web-process-swap.service");
+			}
+			_isCrossDomainNavigation = false;
+            }
 
             _adminLock.Lock();
 
@@ -4583,6 +4596,7 @@ static GSourceFuncs _handlerIntervention =
         bool _compliant;
         Core::StateTrigger<bool> _configurationCompleted;
         bool _webProcessCheckInProgress;
+	bool _isCrossDomainNavigation;
         uint32_t _unresponsiveReplyNum;
         unsigned _frameCount;
         gint64 _lastDumpTime;
