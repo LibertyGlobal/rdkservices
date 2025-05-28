@@ -1137,7 +1137,6 @@ static GSourceFuncs _handlerIntervention =
             , _compliant(false)
             , _configurationCompleted(false)
             , _webProcessCheckInProgress(false)
-	    , _isCrossDomainNavigation(false)
             , _unresponsiveReplyNum(0)
             , _frameCount(0)
             , _lastDumpTime(g_get_monotonic_time())
@@ -2735,8 +2734,6 @@ static GSourceFuncs _handlerIntervention =
             const bool isNewUrlBlankUrl = URL.find("about:blank") != string::npos;
             const bool isNewUrlMetroSubdomain = URL.find(metroDomain) != string::npos;
 
-	    _isCrossDomainNavigation = (extractDomain(URL) != extractDomain(urlValue()));
-
             urlValue(URL);
 
             if(!isCurrentUrlBootUrl && isNewUrlBootUrl && !_bootUrl.empty()) {
@@ -2767,7 +2764,6 @@ static GSourceFuncs _handlerIntervention =
                     TRACE_L1("URL updated, storing new loadResult URL: %s", URL.c_str());
                     urlData_.loadResult.loadUrl = URL;
                 }
-
             }
 
             _adminLock.Lock();
@@ -2805,6 +2801,7 @@ static GSourceFuncs _handlerIntervention =
         void OnLoadFinished(const string& URL)
         {
             uint32_t status = Core::ERROR_NONE;
+	    bool isCrossDomainNavigation = false;
 
             TRACE_L1("%s , _httpStatusCode: %d", URL.c_str(), _httpStatusCode); 
             urlValue(URL);
@@ -2813,14 +2810,17 @@ static GSourceFuncs _handlerIntervention =
             }
             notifyUrlLoadResult(URL, status);
 
-	    if (_isCrossDomainNavigation) {
+	    isCrossDomainNavigation = (extractDomain(URL) != _lastLoadedDomain);
+
+	    if (isCrossDomainNavigation) {
 		        TRACE_L1("Cross Domain navigation detected");
                         int ret = system("/bin/systemctl start wpe-web-process-swap.service");
                         if (ret != 0) {
 			    TRACE_L1("Unable to start wpe-web-process-swap.service");
 			}
-			_isCrossDomainNavigation = false;
             }
+
+	    _lastLoadedDomain = extractDomain(URL);
 
             _adminLock.Lock();
 
@@ -4596,7 +4596,7 @@ static GSourceFuncs _handlerIntervention =
         bool _compliant;
         Core::StateTrigger<bool> _configurationCompleted;
         bool _webProcessCheckInProgress;
-	bool _isCrossDomainNavigation;
+	std::string _lastLoadedDomain;
         uint32_t _unresponsiveReplyNum;
         unsigned _frameCount;
         gint64 _lastDumpTime;
