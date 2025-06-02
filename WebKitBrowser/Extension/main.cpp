@@ -108,6 +108,7 @@ public:
           _consoleLogPrefix = _consoleLogPrefix.substr(0, _consoleLogPrefix.find(','));
 
         TRACE_GLOBAL(Trace::Error, (_T("VV:Initialize -> logs enabled:%d"), _logToSystemConsoleEnabled?1:0));
+        g_print("VV: Initialize -> logs enabled:%d", _logToSystemConsoleEnabled?1:0);
 
         g_signal_connect(
           webkit_script_world_get_default(),
@@ -181,6 +182,8 @@ private:
                                     PluginHost* host)
     {
         TRACE_GLOBAL(Trace::Error, (_T("VV:pageCreatedCallback-> logs enabled:%d"), (host->_logToSystemConsoleEnabled)?1:0));
+        g_print("VV: pageCreatedCallbacke -> logs enabled:%d", (host->_logToSystemConsoleEnabled)?1:0);
+
         if (host->_logToSystemConsoleEnabled) {
             g_signal_connect(page, "console-message-sent",
                 G_CALLBACK(consoleMessageSentCallback), host);
@@ -201,6 +204,7 @@ private:
         uint64_t line = static_cast<uint64_t>(webkit_console_message_get_line(message));
         const gchar* src = webkit_console_message_get_source_id(message);
 	TRACE_GLOBAL(Trace::Error, (_T("consoleMessageSentCallback-> %s:%llu messageString: %s"), src, line, messageString.c_str()));
+        g_print("VV: consoleMessageSentCallback-> %s:%llu messageString: %s",  src, line, messageString.c_str());
     }
     static gboolean userMessageReceivedCallback(WebKitWebPage* page, WebKitUserMessage* message)
     {
@@ -256,6 +260,8 @@ MODULE_NAME_DECLARATION(BUILD_REFERENCE)
 
 G_MODULE_EXPORT void webkit_web_extension_initialize_with_user_data(WebKitWebExtension* extension, GVariant* userData)
 {
+    g_print("VV: webkit_web_extension_initialize_with_user_data");
+
     _wpeFrameworkClient.Initialize(extension, userData);
 }
 
