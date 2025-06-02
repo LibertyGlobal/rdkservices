@@ -107,6 +107,8 @@ public:
         if (_logToSystemConsoleEnabled && Core::SystemInfo::GetEnvironment(string(_T("CLIENT_IDENTIFIER")), _consoleLogPrefix))
           _consoleLogPrefix = _consoleLogPrefix.substr(0, _consoleLogPrefix.find(','));
 
+        TRACE_GLOBAL(Trace::Error, (_T("VV:Initialize -> logs enabled:%d"), _logToSystemConsoleEnabled?1:0));
+
         g_signal_connect(
           webkit_script_world_get_default(),
           "window-object-cleared",
@@ -178,6 +180,7 @@ private:
                                     WebKitWebPage* page,
                                     PluginHost* host)
     {
+        TRACE_GLOBAL(Trace::Error, (_T("VV:pageCreatedCallback-> logs enabled:%d"), (host->_logToSystemConsoleEnabled)?1:0));
         if (host->_logToSystemConsoleEnabled) {
             g_signal_connect(page, "console-message-sent",
                 G_CALLBACK(consoleMessageSentCallback), host);
@@ -197,7 +200,7 @@ private:
         string messageString = Core::ToString(webkit_console_message_get_text(message));
         uint64_t line = static_cast<uint64_t>(webkit_console_message_get_line(message));
         const gchar* src = webkit_console_message_get_source_id(message);
-	TRACE_GLOBAL(Trace::Warning, (_T("consoleMessageSentCallback-> %s:%llu messageString: %s"), src, line, messageString.c_str()));
+	TRACE_GLOBAL(Trace::Error, (_T("consoleMessageSentCallback-> %s:%llu messageString: %s"), src, line, messageString.c_str()));
     }
     static gboolean userMessageReceivedCallback(WebKitWebPage* page, WebKitUserMessage* message)
     {
