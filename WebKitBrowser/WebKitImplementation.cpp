@@ -1138,6 +1138,8 @@ static GSourceFuncs _handlerIntervention =
             , _configurationCompleted(false)
             , _webProcessCheckInProgress(false)
             , _unresponsiveReplyNum(0)
+	    , _lastLoadedDomain()
+	    , _previousPid(-1)
             , _frameCount(0)
             , _lastDumpTime(g_get_monotonic_time())
             , _userScripts()
@@ -2810,17 +2812,35 @@ static GSourceFuncs _handlerIntervention =
             }
             notifyUrlLoadResult(URL, status);
 
-	    isCrossDomainNavigation = (extractDomain(URL) != _lastLoadedDomain);
+	    isCrossDomainNavigation = (!_lastLoadedDomain.empty() && extractDomain(URL) != _lastLoadedDomain);
+	    pid_t currentPid = webkit_web_view_get_web_process_identifier(_view);
+            TRACE_L1("New WPEWebProcess PID detected: %d", currentPid);
+            TRACE_L1("CurrentDomain: %s, LastDomain: %s", extractDomain(URL).c_str(), _lastLoadedDomain.c_str());
 
-	    if (isCrossDomainNavigation) {
-		        TRACE_L1("Cross Domain navigation detected");
-                        int ret = system("/bin/systemctl start wpe-web-process-swap.service");
-                        if (ret != 0) {
-			    TRACE_L1("Unable to start wpe-web-process-swap.service");
-			}
+            if (isCrossDomainNavigation) {
+                 TRACE_L1("Cross Domain navigation detected. Waiting for old WPEWebProcess PID to exit");
+                 const int timeoutSec = 10;
+                 auto start = std::chrono::steady_clock::now();
+                 std::string procPath = "/proc/" + std::to_string(_previousPid);
+
+                 // Waiting for old PID to exit
+                 while (std::chrono::steady_clock::now() - start < std::chrono::seconds(timeoutSec)) {
+                        if (access(procPath.c_str(), F_OK) != 0) {
+                           TRACE_L1("Old PID %d exited.", _previousPid);
+                           break;
+                         }
+			std::this_thread::sleep_for(std::chrono::milliseconds(200));
+                  }
+
+                  int ret = system("/bin/systemctl start wpe-web-process-swap.service");
+                  if (ret != 0) {
+                       TRACE_L1("Failed to start wpe-web-process-swap.service");
+                  }
             }
 
-	    _lastLoadedDomain = extractDomain(URL);
+            _lastLoadedDomain = extractDomain(URL);
+            _previousPid = currentPid;
+
 
             _adminLock.Lock();
 
@@ -4597,6 +4617,7 @@ static GSourceFuncs _handlerIntervention =
         Core::StateTrigger<bool> _configurationCompleted;
         bool _webProcessCheckInProgress;
 	std::string _lastLoadedDomain;
+	pid_t _previousPid;
         uint32_t _unresponsiveReplyNum;
         unsigned _frameCount;
         gint64 _lastDumpTime;
