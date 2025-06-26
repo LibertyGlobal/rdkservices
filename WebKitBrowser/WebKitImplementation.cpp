@@ -3538,7 +3538,7 @@ static GSourceFuncs _handlerIntervention =
                             ASSERT(object->urlValue() == kBlankURL);
                         }
 #ifdef WEBKIT_GLIB_API
-                        webkit_web_view_suspend(object->_view);
+                        webkit_web_view_freeze(object->_view);
 #else
                         WKViewSetViewState(object->_view, (object->_hidden ? 0 : kWKViewStateIsVisible));
 #endif
