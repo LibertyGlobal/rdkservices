@@ -1246,6 +1246,17 @@ namespace Plugin {
                         _sessionList.erase(index);
                     }
                 }
+                bool hasSession = false;
+                for (auto s : _sessionList) {
+                    if (s->KeySystem() == keySystem) {
+                        hasSession = true;
+                        break;
+                    }
+                }
+                if (!hasSession) {
+                    TRACE(Trace::Information, (_T("No more sessions for keySystem %s, deinitializing context"), keySystem.c_str()));
+                    DeinitializeCtx(keySystem, false);
+                }
 
                 _adminLock.Unlock();
             }
