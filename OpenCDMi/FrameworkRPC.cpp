@@ -110,7 +110,45 @@ namespace Plugin {
     }
 
     static const TCHAR BufferFileName[] = _T("ocdmbuffer.");
-
+    class SystemInstance {
+    private:
+    SystemInstance() = delete;
+    SystemInstance(const SystemInstance&) = delete;
+    SystemInstance& operator=(const SystemInstance&) = delete;
+    public:
+        SystemInstance(CDMi::IMediaKeysExt* _system, const std::string& keySystem)
+        : _system(_system)
+        , _keySystem(keySystem)
+        , _initResult(CDMi::CDMi_RESULT::CDMi_FAIL) // Default to failure
+        , _refCount(1)
+        , _cleanOnDestroy(true) // Default to true, clean on destroy
+        {
+        _initResult = _system->InitializeCtx(keySystem);
+        //_system->AddRef();
+            TRACE_L1("Constructed the SystemInstance %p for factory %p", this, _factory);
+        }
+        virtual ~SystemInstance()
+        {
+            if (_system != nullptr) {
+                TRACE_L1("Destructed the SystemInstance %p for factory %p", this, _factory);
+                TRACE_L1("Destructed the systemInstance for keySystem %s", _keySystem.c_str());
+                _system->DeinitializeCtx(_keySystem, _cleanOnDestroy);
+            }
+        }
+        virtual void AddRef() {
+            ++_refCount;
+            TRACE_L1("AddRef called, new ref count: %d for object %p", _refCount, this);
+        }
+        CDMi::CDMi_RESULT GetInitResult() const {
+        return _initResult;
+        }
+    private:
+        CDMi::IMediaKeysExt* _system;
+        std::string _keySystem;
+        bool _cleanOnDestroy;
+        CDMi::CDMi_RESULT _initResult;
+        mutable uint32_t _refCount;
+    };
     class OCDMImplementation : public Exchange::IContentDecryption {
     private:
         OCDMImplementation(const OCDMImplementation&) = delete;
@@ -1148,7 +1186,8 @@ namespace Plugin {
             {
                 CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                 if (systemExt) {
-                    return (Exchange::OCDM_RESULT)systemExt->InitializeCtx(keySystem);
+                    auto _systemInstance = Core::Service<SystemInstance>::Create<SystemInstance>(systemExt, keySystem);
+                    return (Exchange::OCDM_RESULT)_systemInstance->GetInitResult();
                 }
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
             }
