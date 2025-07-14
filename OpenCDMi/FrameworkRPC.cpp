@@ -110,7 +110,7 @@ namespace Plugin {
     }
 
     static const TCHAR BufferFileName[] = _T("ocdmbuffer.");
-    class SystemInstance {
+    class SystemInstance : public Core::IUnknown {
     private:
     SystemInstance() = delete;
     SystemInstance(const SystemInstance&) = delete;
@@ -121,11 +121,9 @@ namespace Plugin {
         , _keySystem(keySystem)
         , _initResult(CDMi::CDMi_RESULT::CDMi_FAIL) // Default to failure
         , _refCount(1)
-        , _cleanOnDestroy(true) // Default to true, clean on destroy
         {
         _initResult = _system->InitializeCtx(keySystem);
-        //_system->AddRef();
-            TRACE_L1("Constructed the SystemInstance %p for factory %p", this, _factory);
+         TRACE_L1("Constructed the SystemInstance %p for factory %p", this, _factory);
         }
         virtual ~SystemInstance()
         {
@@ -135,19 +133,22 @@ namespace Plugin {
                 _system->DeinitializeCtx(_keySystem, _cleanOnDestroy);
             }
         }
-        virtual void AddRef() {
-            ++_refCount;
-            TRACE_L1("AddRef called, new ref count: %d for object %p", _refCount, this);
-        }
+
         CDMi::CDMi_RESULT GetInitResult() const {
         return _initResult;
         }
+ 
+        BEGIN_INTERFACE_MAP(SystemInstance)
+        INTERFACE_ENTRY(Core::IUnknown)
+        END_INTERFACE_MAP
+    
     private:
+        CDMi::ISystemFactory* _factory;
         CDMi::IMediaKeysExt* _system;
         std::string _keySystem;
         bool _cleanOnDestroy;
         CDMi::CDMi_RESULT _initResult;
-        mutable uint32_t _refCount;
+        mutable std::atomic<uint32_t> _refCount;
     };
     class OCDMImplementation : public Exchange::IContentDecryption {
     private:
@@ -205,7 +206,6 @@ namespace Plugin {
         private:
             Exchange::IAccessorOCDM* _parentInterface;
         };
-
         class AccessorOCDM : public Exchange::IAccessorOCDM {
         private:
             AccessorOCDM() = delete;
@@ -867,6 +867,7 @@ namespace Plugin {
             }
 
         public:
+            std::shared_ptr<SystemInstance> _systemInstance;
             bool IsTypeSupported(
                 const std::string& keySystem,
                 const std::string& mimeType) const override
@@ -1187,7 +1188,10 @@ namespace Plugin {
                 CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                 if (systemExt) {
                     auto _systemInstance = Core::Service<SystemInstance>::Create<SystemInstance>(systemExt, keySystem);
+                    _systemInstance->AddRef();
                     return (Exchange::OCDM_RESULT)_systemInstance->GetInitResult();
+                    //return result ? Exchange::OCDM_RESULT::OCDM_SUCCESS : Exchange::OCDM_RESULT::OCDM_S_FALSE;
+
                 }
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
             }
@@ -1294,6 +1298,7 @@ namespace Plugin {
             BufferAdministrator _administrator;
             uint32_t _defaultSize;
             std::list<SessionImplementation*> _sessionList;
+
         };
 
         class Config : public Core::JSON::Container {
@@ -1712,6 +1717,8 @@ namespace Plugin {
 
                 if (_systemToFactory.end() != index) {
                     result = index->second.Factory->Instance();
+                   //auto result = Core::Service<SystemInstance>::Create<SystemInstance>(index->second.Factory, keySystem);
+                   //result->AddRef();
                 }
             }
 
