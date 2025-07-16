@@ -110,46 +110,7 @@ namespace Plugin {
     }
 
     static const TCHAR BufferFileName[] = _T("ocdmbuffer.");
-    class SystemInstance : public Core::IUnknown {
-    private:
-    SystemInstance() = delete;
-    SystemInstance(const SystemInstance&) = delete;
-    SystemInstance& operator=(const SystemInstance&) = delete;
-    public:
-        SystemInstance(CDMi::IMediaKeysExt* _system, const std::string& keySystem)
-        : _system(_system)
-        , _keySystem(keySystem)
-        , _initResult(CDMi::CDMi_RESULT::CDMi_FAIL) // Default to failure
-        , _refCount(1)
-        {
-        _initResult = _system->InitializeCtx(keySystem);
-         TRACE_L1("Constructed the SystemInstance %p for factory %p", this, _factory);
-        }
-        virtual ~SystemInstance()
-        {
-            if (_system != nullptr) {
-                TRACE_L1("Destructed the SystemInstance %p for factory %p", this, _factory);
-                TRACE_L1("Destructed the systemInstance for keySystem %s", _keySystem.c_str());
-                _system->DeinitializeCtx(_keySystem, _cleanOnDestroy);
-            }
-        }
 
-        CDMi::CDMi_RESULT GetInitResult() const {
-        return _initResult;
-        }
- 
-        BEGIN_INTERFACE_MAP(SystemInstance)
-        INTERFACE_ENTRY(Core::IUnknown)
-        END_INTERFACE_MAP
-    
-    private:
-        CDMi::ISystemFactory* _factory;
-        CDMi::IMediaKeysExt* _system;
-        std::string _keySystem;
-        bool _cleanOnDestroy;
-        CDMi::CDMi_RESULT _initResult;
-        mutable std::atomic<uint32_t> _refCount;
-    };
     class OCDMImplementation : public Exchange::IContentDecryption {
     private:
         OCDMImplementation(const OCDMImplementation&) = delete;
@@ -291,7 +252,47 @@ namespace Plugin {
                 string _basePath;
                 uint16_t _occupation;
             };
+            class SystemInstance : public Core::IUnknown {
+            private:
+            SystemInstance() = delete;
+            SystemInstance(const SystemInstance&) = delete;
+            SystemInstance& operator=(const SystemInstance&) = delete;
+            public:
+                SystemInstance(CDMi::IMediaKeysExt* _system, const std::string& keySystem)
+                : _system(_system)
+                , _keySystem(keySystem)
+                , _initResult(CDMi::CDMi_RESULT::CDMi_FAIL) // Default to failure
+                , _refCount(1)
+                , _cleanOnDestroy(true) // Default to clean on destroy
+                
+                {
+                _initResult = _system->InitializeCtx(keySystem);
+                TRACE_L1("Constructed the SystemInstance for keySystem %s", _keySystem.c_str());
+                }
+                virtual ~SystemInstance()
+                {
+                    TRACE_L1("Destructing SystemInstance %p for keySystem %s", this, _keySystem.c_str());
+                    if (_system != nullptr) {
+                        TRACE_L1("Destructed the systemInstance for keySystem %s", _keySystem.c_str());
+                        _system->DeinitializeCtx(_keySystem, _cleanOnDestroy);
+                    }
+                }
 
+                CDMi::CDMi_RESULT GetInitResult() const {
+                return _initResult;
+                }
+
+                BEGIN_INTERFACE_MAP(SystemInstance)
+                INTERFACE_ENTRY(Core::IUnknown)
+                END_INTERFACE_MAP
+            
+            private:
+                CDMi::IMediaKeysExt* _system;
+                std::string _keySystem;
+                bool _cleanOnDestroy;
+                CDMi::CDMi_RESULT _initResult;
+                mutable std::atomic<uint32_t> _refCount;
+            };
             // IMediaKeys defines the MediaKeys interface.
             class SessionImplementation : public Exchange::ISession, public Exchange::ISessionExt {
             private:
@@ -867,7 +868,6 @@ namespace Plugin {
             }
 
         public:
-            std::shared_ptr<SystemInstance> _systemInstance;
             bool IsTypeSupported(
                 const std::string& keySystem,
                 const std::string& mimeType) const override
@@ -1187,11 +1187,9 @@ namespace Plugin {
             {
                 CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                 if (systemExt) {
-                    auto _systemInstance = Core::Service<SystemInstance>::Create<SystemInstance>(systemExt, keySystem);
-                    _systemInstance->AddRef();
-                    return (Exchange::OCDM_RESULT)_systemInstance->GetInitResult();
-                    //return result ? Exchange::OCDM_RESULT::OCDM_SUCCESS : Exchange::OCDM_RESULT::OCDM_S_FALSE;
-
+                    SystemInstance *systemInstance = Core::Service<SystemInstance>::Create<SystemInstance>(systemExt, keySystem);
+                    _systemInstances[keySystem] = systemInstance;
+                    return (Exchange::OCDM_RESULT)systemInstance->GetInitResult();
                 }
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
             }
@@ -1200,6 +1198,11 @@ namespace Plugin {
             {
                 CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                 if (systemExt) {
+                    auto it = _systemInstances.find(keySystem);
+                    if (it != _systemInstances.end()) {
+                        it->second->Release();
+                        _systemInstances.erase(it);
+                    }
                     return (Exchange::OCDM_RESULT)systemExt->DeinitializeCtx(keySystem, cleanOnDestroy);
                 }
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
@@ -1298,7 +1301,7 @@ namespace Plugin {
             BufferAdministrator _administrator;
             uint32_t _defaultSize;
             std::list<SessionImplementation*> _sessionList;
-
+            std::map<std::string, SystemInstance*> _systemInstances;
         };
 
         class Config : public Core::JSON::Container {
@@ -1717,8 +1720,6 @@ namespace Plugin {
 
                 if (_systemToFactory.end() != index) {
                     result = index->second.Factory->Instance();
-                   //auto result = Core::Service<SystemInstance>::Create<SystemInstance>(index->second.Factory, keySystem);
-                   //result->AddRef();
                 }
             }
 
