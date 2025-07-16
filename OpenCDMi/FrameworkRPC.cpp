@@ -167,7 +167,6 @@ namespace Plugin {
         private:
             Exchange::IAccessorOCDM* _parentInterface;
         };
-
         class AccessorOCDM : public Exchange::IAccessorOCDM {
         private:
             AccessorOCDM() = delete;
@@ -253,7 +252,47 @@ namespace Plugin {
                 string _basePath;
                 uint16_t _occupation;
             };
+            class SystemInstance : public Core::IUnknown {
+            private:
+            SystemInstance() = delete;
+            SystemInstance(const SystemInstance&) = delete;
+            SystemInstance& operator=(const SystemInstance&) = delete;
+            public:
+                SystemInstance(CDMi::IMediaKeysExt* _system, const std::string& keySystem)
+                : _system(_system)
+                , _keySystem(keySystem)
+                , _initResult(CDMi::CDMi_RESULT::CDMi_FAIL) // Default to failure
+                , _refCount(1)
+                , _cleanOnDestroy(true) // Default to clean on destroy
+                
+                {
+                _initResult = _system->InitializeCtx(keySystem);
+                TRACE_L1("Constructed the SystemInstance for keySystem %s", _keySystem.c_str());
+                }
+                virtual ~SystemInstance()
+                {
+                    TRACE_L1("Destructing SystemInstance %p for keySystem %s", this, _keySystem.c_str());
+                    if (_system != nullptr) {
+                        TRACE_L1("Destructed the systemInstance for keySystem %s", _keySystem.c_str());
+                        _system->DeinitializeCtx(_keySystem, _cleanOnDestroy);
+                    }
+                }
 
+                CDMi::CDMi_RESULT GetInitResult() const {
+                return _initResult;
+                }
+
+                BEGIN_INTERFACE_MAP(SystemInstance)
+                INTERFACE_ENTRY(Core::IUnknown)
+                END_INTERFACE_MAP
+            
+            private:
+                CDMi::IMediaKeysExt* _system;
+                std::string _keySystem;
+                bool _cleanOnDestroy;
+                CDMi::CDMi_RESULT _initResult;
+                mutable std::atomic<uint32_t> _refCount;
+            };
             // IMediaKeys defines the MediaKeys interface.
             class SessionImplementation : public Exchange::ISession, public Exchange::ISessionExt {
             private:
@@ -1148,7 +1187,9 @@ namespace Plugin {
             {
                 CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                 if (systemExt) {
-                    return (Exchange::OCDM_RESULT)systemExt->InitializeCtx(keySystem);
+                    SystemInstance *systemInstance = Core::Service<SystemInstance>::Create<SystemInstance>(systemExt, keySystem);
+                    _systemInstances[keySystem] = systemInstance;
+                    return (Exchange::OCDM_RESULT)systemInstance->GetInitResult();
                 }
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
             }
@@ -1157,6 +1198,11 @@ namespace Plugin {
             {
                 CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                 if (systemExt) {
+                    auto it = _systemInstances.find(keySystem);
+                    if (it != _systemInstances.end()) {
+                        it->second->Release();
+                        _systemInstances.erase(it);
+                    }
                     return (Exchange::OCDM_RESULT)systemExt->DeinitializeCtx(keySystem, cleanOnDestroy);
                 }
                 return Exchange::OCDM_RESULT::OCDM_S_FALSE;
@@ -1246,7 +1292,6 @@ namespace Plugin {
                         _sessionList.erase(index);
                     }
                 }
-
                 _adminLock.Unlock();
             }
 
@@ -1256,6 +1301,7 @@ namespace Plugin {
             BufferAdministrator _administrator;
             uint32_t _defaultSize;
             std::list<SessionImplementation*> _sessionList;
+            std::map<std::string, SystemInstance*> _systemInstances;
         };
 
         class Config : public Core::JSON::Container {
