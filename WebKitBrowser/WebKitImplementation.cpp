@@ -30,19 +30,6 @@
 
 #include "odhlog.h"
 
-#include "host.hpp"
-#include "videoDevice.hpp"
-#include "manager.hpp"
-#include "dsUtl.h"
-#include "dsError.h"
-#include "dsMgr.h"
-#include "dsTypes.h"
-#include "list.hpp"
-#include "videoOutputPort.hpp"
-#include "videoOutputPortType.hpp"
-#include "videoOutputPortConfig.hpp"
-#include "UtilsJsonRpc.h"
-#include "UtilsIarm.h"
 #include <curl/urlapi.h>
 
 #ifdef WEBKIT_GLIB_API
@@ -110,6 +97,11 @@ WK_EXPORT void WKPreferencesSetPageCacheEnabled(WKPreferencesRef preferences, bo
 #define HAS_MEMORY_PRESSURE_SETTINGS_API 0
 #else
 #define HAS_MEMORY_PRESSURE_SETTINGS_API WEBKIT_CHECK_VERSION(2, 38, 0)
+#endif
+
+#define HAS_SCREEN_HDR_API WEBKIT_CHECK_VERSION(2, 38, 0)
+#if HAS_SCREEN_HDR_API
+#include <interfaces/IDisplayInfo.h>
 #endif
 
 #define URL_LOAD_RESULT_TIMEOUT_MS                                   (15 * 1000)
@@ -561,11 +553,11 @@ static GSourceFuncs _handlerIntervention =
                                  public Exchange::IBrowserCookieJar,
                                  #endif
                                  public PluginHost::IStateControl,
+#if HAS_SCREEN_HDR_API
+                                 public Exchange::IConnectionProperties::INotification,
+#endif
                                  public Exchange::IBrowserResources {
     public:
-        static WebKitImplementation* _instance;
-        static WebKitImplementation *getInstance() {return _instance;}
-
         class BundleConfig : public Core::JSON::Container {
         private:
             using BundleConfigMap = std::map<string, Core::JSON::String>;
@@ -777,6 +769,7 @@ static GSourceFuncs _handlerIntervention =
                 , LoggingTarget()
                 , WebAudioEnabled(false)
                 , ICECandidateFilteringEnabled()
+                , HDRRefreshDelay(1000) // Default to 1 second for HDR refresh delay
             {
                 Add(_T("webkitdebug"), &WebkitDebug);
                 Add(_T("gstdebug"), &GstDebug);
@@ -851,6 +844,7 @@ static GSourceFuncs _handlerIntervention =
                 Add(_T("loggingtarget"), &LoggingTarget);
                 Add(_T("webaudio"), &WebAudioEnabled);
                 Add(_T("icecandidatefiltering"), &ICECandidateFilteringEnabled);
+                Add(_T("hdrrefreshDelay"), &HDRRefreshDelay);
             }
             ~Config()
             {
@@ -930,6 +924,7 @@ static GSourceFuncs _handlerIntervention =
             Core::JSON::String LoggingTarget;
             Core::JSON::Boolean WebAudioEnabled;
             Core::JSON::Boolean ICECandidateFilteringEnabled;
+            Core::JSON::DecUInt16 HDRRefreshDelay; // Delay in miliseconds to refresh HDR support
         };
 
         class HangDetector
@@ -1142,6 +1137,11 @@ static GSourceFuncs _handlerIntervention =
             , _lastDumpTime(g_get_monotonic_time())
             , _userScripts()
             , _userStyleSheets()
+#if HAS_SCREEN_HDR_API
+            ,_displayInfoPlugin(nullptr)
+            ,_displayConnectionProps(nullptr)
+            ,_hdrSupported(false)
+#endif // HAS_SCREEN_HDR_API
         {
             // Register an @Exit, in case we are killed, with an incorrect ref count !!
             if (atexit(CloseDown) != 0) {
@@ -1151,7 +1151,6 @@ static GSourceFuncs _handlerIntervention =
 
             // The WebKitBrowser (WPE) can only be instantiated once (it is a process wide singleton !!!!)
             ASSERT(implementation == nullptr);
-            WebKitImplementation::_instance = this;
 
 #ifdef USE_ODH_TELEMETRY
             // Initialize ODH reporting for WebKitBrowser
@@ -1198,8 +1197,11 @@ static GSourceFuncs _handlerIntervention =
                 TRACE(Trace::Information, (_T("Bailed out before the end of the WPE main app was reached. %d"), 6000));
             }
 
+#if HAS_SCREEN_HDR_API
+            UnsubscribeHDRCapabilities();
+#endif
+
             implementation = nullptr;
-            WebKitImplementation::_instance = nullptr;
         }
 
     public:
@@ -2465,28 +2467,6 @@ static GSourceFuncs _handlerIntervention =
             return static_cast<uint32_t>(fps);
         }
 
-        void UnregisterIARMEvents()
-        {
-            constexpr const char* waylandWPEWebProcessName = "wayland-egl-WPEWebProcess";
-            int isRegistered = 0;
-            IARM_Result_t res = IARM_Bus_IsConnected(waylandWPEWebProcessName, &isRegistered);
-            if (res == IARM_RESULT_SUCCESS && isRegistered)
-            {
-                IARM_CHECK( IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, EventHandler) );
-                /*
-                 * When WPEProcess terminates by exit() function call (i.e. when WPEWebProcess crash is detected),
-                 * device::Manager' static objects are freed before calling ~WebKitImplementation() destructor.
-                 * In such case below deinit function tries to free objects which are already freed and core dump is triggered.
-                 * device::Manager's static objects are freed either by exit() call or during graceful quit so there's no need
-                 * to explicitly call below deinit.
-                 */
-                //device::Manager::DeInitialize();
-                IARM_Bus_Disconnect();
-                IARM_Bus_Term();
-                LOGINFO("Removed IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG & uninitialized DS Mgr");
-            }
-        }
-
         void Register(Exchange::IWebBrowser::INotification* sink) override
         {
             _adminLock.Lock();
@@ -3041,86 +3021,6 @@ static GSourceFuncs _handlerIntervention =
             }
         }
 
-	void IARMEventHandler()
-	{
-#ifdef WEBKIT_GLIB_API
-            bool hdrCaps = GetHDRCapabilities();
-            TRACE_L1("Setting HDR caps in IARM Event Handler: %d", hdrCaps);
-            webkit_settings_set_platform_hdr_capabilities(webkit_web_view_get_settings(_view), hdrCaps);
-            TRACE_L1("Getting HDR caps: %d", webkit_settings_get_platform_hdr_capabilities(webkit_web_view_get_settings(_view)));
-#endif
-	}
-
-        static void EventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
-        {
-            if(eventId == IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG)
-            {
-                TRACE_L1("IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG received");
-                WebKitImplementation::getInstance()->IARMEventHandler();
-            }
-        }
-
-        bool GetHDRCapabilities()
-        {
-            int stbCaps = -1;
-            int tvCaps = -1;
-            IARM_Result_t err = IARM_RESULT_SUCCESS;
-            bool retValue = false;
-            constexpr const char* waylandWPEWebProcessName = "wayland-egl-WPEWebProcess";
-
-            IARM_Result_t res;
-            int isRegistered = 0;
-            res = IARM_Bus_IsConnected(waylandWPEWebProcessName, &isRegistered);
-            if (res != IARM_RESULT_SUCCESS && !isRegistered)
-            {
-                TRACE_L1("Initializing IARM Bus");
-                err = IARM_Bus_Init(waylandWPEWebProcessName);
-                if(IARM_RESULT_SUCCESS != err)
-                {
-                    TRACE_L1("Error initializing IARM.. error code : %d\n",err);
-                    return retValue;
-                }
-
-                TRACE_L1("Connecting to IARM Bus");
-                err = IARM_Bus_Connect();
-                if(IARM_RESULT_SUCCESS != err)
-                {
-                    TRACE_L1("Error connecting to IARM.. error code : %d\n",err);
-                    IARM_Bus_Term();
-                    return retValue;
-                }
-
-                device::Manager::Initialize();
-                IARM_Result_t res;
-                IARM_CHECK( IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME, IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, EventHandler) );
-                TRACE_L1("Registered IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG received & initialized DS Mgr");
-	    }
-
-            // Get STB HDR capabilities
-            device::VideoDevice decoder = device::Host::getInstance().getVideoDevices().at(0);
-            decoder.getHDRCapabilities(&stbCaps);
-            TRACE_L1("STB HDRCapabilities - [%d]", stbCaps);
-
-            // Get TV HDR capabilities
-            std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
-            device::VideoOutputPort vPort = device::VideoOutputPortConfig::getInstance().getPort(strVideoPort.c_str());
-
-            if(vPort.isDisplayConnected())
-            {
-                vPort.getTVHDRCapabilities(&tvCaps);
-            }
-
-            TRACE_L1("TV HDRCapabilities - [%d]", tvCaps);
-
-            if(stbCaps > 0 && tvCaps > 0)
-            {
-                retValue = true;
-            }
-
-            TRACE_L1("GetHDRCapabilities : returning %s", retValue ? "true" : "false");
-            return retValue;
-        }
-
         uint32_t Configure(PluginHost::IShell* service) override
         {
             #ifndef WEBKIT_GLIB_API
@@ -3475,6 +3375,9 @@ static GSourceFuncs _handlerIntervention =
 #endif
         INTERFACE_ENTRY(PluginHost::IStateControl)
         INTERFACE_ENTRY(Exchange::IBrowserResources)
+#if HAS_SCREEN_HDR_API
+        INTERFACE_ENTRY(Exchange::IConnectionProperties::INotification)
+#endif
         END_INTERFACE_MAP
 
     private:
@@ -3957,6 +3860,13 @@ static GSourceFuncs _handlerIntervention =
             // webaudio support
             webkit_settings_set_enable_webaudio(preferences, _config.WebAudioEnabled.Value());
 
+#if HAS_SCREEN_HDR_API
+            SubscribeHDRCapabilities();
+            // Query the current HDR capabilities before we start the browser
+            RefreshHDRSupport();
+            UpdateHDRSettings(preferences);
+#endif
+
             // Allow mixed content.
             bool allowMixedContent = !_config.Secure.Value();
             SYSLOG(Logging::Notification, (_T("Mixed content is %s\n"), (allowMixedContent ? "allowed" : "blocked")));
@@ -3993,10 +3903,6 @@ static GSourceFuncs _handlerIntervention =
                     browser->SetFPS();
                 }, this, nullptr);
             }
-
-#ifdef WEBKIT_GLIB_API
-            webkit_settings_set_platform_hdr_capabilities(webkit_web_view_get_settings(_view), GetHDRCapabilities());
-#endif
 
             auto* userContentManager = webkit_web_view_get_user_content_manager(_view);
             // webkit_user_content_manager_register_script_message_handler_in_world(userContentManager, "wpeNotifyWPEFramework", std::to_string(_guid).c_str());
@@ -4047,7 +3953,6 @@ static GSourceFuncs _handlerIntervention =
 
             g_main_loop_run(_loop);
 
-            UnregisterIARMEvents();
             gcCleaner.reset(nullptr);
 
             if (frameDisplayedCallbackID)
@@ -4396,6 +4301,181 @@ static GSourceFuncs _handlerIntervention =
 #endif
         }
 
+#if HAS_SCREEN_HDR_API
+        WPEFramework::PluginHost::IPlugin* QueryDisplayInfoPlugin()
+        {
+            if (_displayInfoPlugin) {
+                return _displayInfoPlugin;
+            }
+            if (!_service) {
+                return nullptr;
+            }
+            _displayInfoPlugin = _service->QueryInterfaceByCallsign<WPEFramework::PluginHost::IPlugin>(_T("DisplayInfo"));
+            if (!_displayInfoPlugin) {
+                SYSLOG(Logging::Error, (_T("Failed to query DisplayInfo plugin.")));
+                return nullptr;
+            }
+            return _displayInfoPlugin;
+        }
+
+        bool SubscribeHDRCapabilities()
+        {
+            auto* displayInfoPlugin = QueryDisplayInfoPlugin();
+            if (!displayInfoPlugin || _displayConnectionProps) {
+                return false;
+            }
+            _displayConnectionProps = displayInfoPlugin->QueryInterface<Exchange::IConnectionProperties>();
+            if (!_displayConnectionProps) {
+                SYSLOG(Logging::Error, (_T("Failed to query IConnectionProperties interface from DisplayInfo plugin.")));
+                return false;
+            }
+            _displayConnectionProps->Register(this);
+            SYSLOG(Logging::Notification, (_T("Subscribed to HDR capabilities updates from DisplayInfo plugin.")));
+            return true;
+        }
+
+        void UnsubscribeHDRCapabilities()
+        {
+            if (_displayConnectionProps) {
+                _displayConnectionProps->Unregister(this);
+                _displayConnectionProps->Release();
+                _displayConnectionProps = nullptr;
+            }
+            _adminLock.Lock();
+            if (_hdrRefreshJob.IsValid()) {
+                Core::WorkerPool::Instance().Revoke(_hdrRefreshJob);
+                _hdrRefreshJob.Release();
+            }
+            _adminLock.Unlock();
+            if (_displayInfoPlugin) {
+                _displayInfoPlugin->Release();
+                _displayInfoPlugin = nullptr;
+            }
+            SYSLOG(Logging::Notification, (_T("Unsubscribed from HDR capabilities updates from DisplayInfo plugin.")));
+        }
+
+        void RefreshHDRSupport()
+        {
+            // HDR support will be set to false in case of any failure
+            bool isHDRSupported = false;
+            struct ScopeExit {
+                bool& isHDRSupported;
+                WebKitImplementation& browser;
+                ~ScopeExit() {
+                    browser._adminLock.Lock();
+                    bool wasSupported = browser._hdrSupported;
+                    browser._hdrSupported = isHDRSupported;
+                    browser._adminLock.Unlock();
+                    if (wasSupported != isHDRSupported) {
+                        SYSLOG(Logging::Notification, (_T("HDR support changed to %s"), isHDRSupported ? "true" : "false"));
+                    }
+                }
+            } scope_exit{isHDRSupported, *this};
+
+            auto displayInfoPlugin = QueryDisplayInfoPlugin();
+            if (!displayInfoPlugin) {
+                return;
+            }
+            Exchange::IHDRProperties* hdrPropIface = displayInfoPlugin->QueryInterface<Exchange::IHDRProperties>();
+            if (!hdrPropIface) {
+                SYSLOG(Logging::Error, (_T("Failed to query IHDRProperties interface from DisplayInfo plugin.")));
+                return;
+            }
+            uint32_t rc = Core::ERROR_NONE;
+            Exchange::IHDRProperties::IHDRIterator* iter = nullptr;
+            if ((rc = hdrPropIface->STBCapabilities(iter)) != Core::ERROR_NONE) {
+                SYSLOG(Logging::Error, (_T("Failed to get STB HDR capabilities, error code: %u"), rc));
+                hdrPropIface->Release();
+                return;
+            }
+
+            std::vector<Exchange::IHDRProperties::HDRType> stbCaps;
+            Exchange::IHDRProperties::HDRType value;
+            while (iter->Next(value)) {
+                stbCaps.push_back(value);
+            }
+            iter->Release();
+            iter = nullptr;
+
+            if ((rc = hdrPropIface->TVCapabilities(iter)) != Core::ERROR_NONE) {
+                SYSLOG(Logging::Error, (_T("Failed to get TV HDR capabilities, error code: %u"), rc));
+                hdrPropIface->Release();
+                return;
+            }
+
+            std::vector<Exchange::IHDRProperties::HDRType> commonCaps;
+            while (iter->Next(value)) {
+                if (std::find(stbCaps.begin(), stbCaps.end(), value) != stbCaps.end()) {
+                    commonCaps.push_back(value);
+                }
+            }
+            iter->Release();
+            hdrPropIface->Release();
+
+            for (const auto& cap : commonCaps) {
+                if (cap > Exchange::IHDRProperties::HDRType::HDR_OFF) {
+                    isHDRSupported = true;
+                    break;
+                }
+            }
+            // _hdrSupported will be update in the scope exit handler
+        }
+
+        void UpdateHDRSettings(WebKitSettings* settings)
+        {
+            ASSERT(settings != nullptr);
+            _adminLock.Lock();
+            bool isHDRSupported = _hdrSupported;
+            _adminLock.Unlock();
+            if (webkit_settings_get_screen_supports_hdr(settings) != isHDRSupported) {
+                SYSLOG(Logging::Notification, (_T("Updating HDR support setting to %s"), isHDRSupported ? "true" : "false"));
+                webkit_settings_set_screen_supports_hdr(settings, isHDRSupported);
+            }
+        }
+
+        class HDRRefreshJob : public Core::IDispatch {
+        public:
+            HDRRefreshJob(WebKitImplementation& browser)
+                : _browser(browser)
+            {
+            }
+            ~HDRRefreshJob() override = default;
+            void Dispatch() override
+            {
+                _browser.RefreshHDRSupport();
+                g_main_context_invoke(
+                _browser._context,
+                [](gpointer user_data) -> gboolean {
+                    WebKitImplementation* browser = static_cast<WebKitImplementation*>(user_data);
+                    WebKitSettings* settings = webkit_web_view_get_settings(browser->_view);
+                    browser->UpdateHDRSettings(settings);
+                    return G_SOURCE_REMOVE;
+                },
+                &_browser);
+            }
+        private:
+            WebKitImplementation& _browser;
+        };
+
+        // Exchange::IConnectionProperties::INotification implementation
+        // This method is called on the main thread of the plugin
+        // when the display connection properties are updated.
+        void Updated(const Exchange::IConnectionProperties::INotification::Source event) override
+        {
+            SYSLOG(Logging::Notification, (_T("Display connection properties updated, event: %s"),
+                   Core::EnumerateType<Exchange::IConnectionProperties::INotification::Source>(event).Data()));
+            _adminLock.Lock();
+            if (!_hdrRefreshJob.IsValid()) {
+                _hdrRefreshJob = Core::ProxyType<HDRRefreshJob>::Create(*this);
+                // If a refresh is already scheduled, do nothing
+            }
+            // Delay the refresh to avoid too frequent updates
+            // and to allow the display connection properties to stabilize.
+            Core::WorkerPool::Instance().Reschedule(Core::Time::Now().Add(_config.HDRRefreshDelay.Value()), _hdrRefreshJob);
+            _adminLock.Unlock();
+        }
+#endif // HAS_SCREEN_HDR_API
+
         void CheckWebProcess()
         {
             if ( _webProcessCheckInProgress )
@@ -4588,6 +4668,12 @@ static GSourceFuncs _handlerIntervention =
         gint64 _lastDumpTime;
         std::list<string> _userScripts{};
         std::list<string> _userStyleSheets{};
+#if HAS_SCREEN_HDR_API
+        PluginHost::IPlugin* _displayInfoPlugin;
+        Exchange::IConnectionProperties* _displayConnectionProps;
+        Core::ProxyType<Core::IDispatch> _hdrRefreshJob;
+        bool _hdrSupported;
+#endif // HAS_SCREEN_HDR_API
 
         void notifyUrlLoadResult(const string &URL, uint32_t result)
         {
@@ -4607,7 +4693,6 @@ static GSourceFuncs _handlerIntervention =
     };
 
     SERVICE_REGISTRATION(WebKitImplementation, 1, 0);
-    WebKitImplementation* WebKitImplementation::_instance = nullptr;
 
 #ifndef WEBKIT_GLIB_API
     // Handles synchronous messages from injected bundle.
