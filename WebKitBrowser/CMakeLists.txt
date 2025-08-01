@@ -187,7 +187,6 @@ find_package(CompileSettingsDebug CONFIG REQUIRED)
 find_package(WPEWebKit REQUIRED)
 find_package(WPEBackend REQUIRED)
 find_package(OpenSSL REQUIRED)
-find_package(CURL REQUIRED)
 
 add_library(${MODULE_NAME} SHARED
     Module.cpp
@@ -225,10 +224,7 @@ target_link_libraries(${PLUGIN_WEBKITBROWSER_IMPLEMENTATION}
         ${NAMESPACE}Definitions::${NAMESPACE}Definitions
         WPEBackend::WPEBackend
         WPEWebKit::WPEWebKit
-        OpenSSL::Crypto
-        ${CURL_LIBRARIES})
-
-target_include_directories(${PLUGIN_WEBKITBROWSER_IMPLEMENTATION} PRIVATE ${CURL_INCLUDE_DIRS})
+        OpenSSL::Crypto)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../cmake")
 find_package(DS REQUIRED)
