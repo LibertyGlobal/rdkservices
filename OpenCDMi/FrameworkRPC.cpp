@@ -796,9 +796,9 @@ namespace Plugin {
                     return (Exchange::OCDM_RESULT)_mediaKeySessionExt->StoreLicenseData(licenseData, licenseDataSize, secureStopId);
                 }
 
-                Exchange::OCDM_RESULT SelectKeyId(const uint8_t keyLength, const uint8_t keyId[]) override
+                Exchange::OCDM_RESULT SelectKeyId(const uint8_t keyLength, const uint8_t keyId[], const bool suppressLicErr) override
                 {
-                    return (Exchange::OCDM_RESULT)_mediaKeySessionExt->SelectKeyId(keyLength, keyId);
+                    return (Exchange::OCDM_RESULT)_mediaKeySessionExt->SelectKeyId(keyLength, keyId, suppressLicErr);
                 }
 
                 Exchange::OCDM_RESULT CleanDecryptContext() override
