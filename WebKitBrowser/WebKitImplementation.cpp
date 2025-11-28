@@ -2715,19 +2715,19 @@ static GSourceFuncs _handlerIntervention =
 
         void OnURLChanged(const string& URL)
         {
-            static const auto metroDomain = _bootUrl.substr(0, _bootUrl.find('#'));
+            static const auto bootUrlDomain = _bootUrl.substr(0, _bootUrl.find('#'));
 
             TRACE_L1("%s", URL.c_str());
 
             const bool isCurrentUrlBootUrl = urlValue() == _bootUrl;
-            const bool isCurrUrlMetroSubdomain = urlValue().find(metroDomain) != string::npos;
+            const bool isCurrUrlBootUrlSubdomain = urlValue().find(bootUrlDomain) != string::npos;
             const bool isNewUrlBootUrl = URL == _bootUrl;
             const bool isNewUrlBlankUrl = URL.find("about:blank") != string::npos;
-            const bool isNewUrlMetroSubdomain = URL.find(metroDomain) != string::npos;
+            const bool isNewUrlBootUrlSubdomain = URL.find(bootUrlDomain) != string::npos;
 
             urlValue(URL);
 
-            if(!isCurrentUrlBootUrl && isNewUrlBootUrl && !_bootUrl.empty()) {
+            if(!isCurrUrlBootUrlSubdomain && isNewUrlBootUrl && !_bootUrl.empty()) {
                 TRACE_L1("New URL: %s", URL.c_str());
                 ODH_WARNING("WPE0040", WPE_CONTEXT_WITH_URL(URL.c_str()), "New URL: %s", URL.c_str());
                 TRACE_L1("Starting GCCleaner");
@@ -2737,7 +2737,7 @@ static GSourceFuncs _handlerIntervention =
                 gcCleaner->stop();
             }
 
-            if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
+            if (isNewUrlBlankUrl || (isCurrUrlBootUrlSubdomain && isNewUrlBootUrlSubdomain)) {
                 /*
                  * When loading URL from the same domain only notify::uri signal is being sent.
                  * This scenario happens only for Metro domain addresses.
