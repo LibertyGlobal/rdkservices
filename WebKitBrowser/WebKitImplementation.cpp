@@ -2715,48 +2715,6 @@ static GSourceFuncs _handlerIntervention =
 
         void OnURLChanged(const string& URL)
         {
-            static const auto metroDomain = _bootUrl.substr(0, _bootUrl.find('#'));
-
-            TRACE_L1("%s", URL.c_str());
-
-            const bool isCurrentUrlBootUrl = urlValue() == _bootUrl;
-            const bool isCurrUrlMetroSubdomain = urlValue().find(metroDomain) != string::npos;
-            const bool isNewUrlBootUrl = URL == _bootUrl;
-            const bool isNewUrlBlankUrl = URL.find("about:blank") != string::npos;
-            const bool isNewUrlMetroSubdomain = URL.find(metroDomain) != string::npos;
-
-            urlValue(URL);
-
-            if(!isCurrentUrlBootUrl && isNewUrlBootUrl && !_bootUrl.empty()) {
-                TRACE_L1("New URL: %s", URL.c_str());
-                ODH_WARNING("WPE0040", WPE_CONTEXT_WITH_URL(URL.c_str()), "New URL: %s", URL.c_str());
-                TRACE_L1("Starting GCCleaner");
-                gcCleaner->start();
-            } else {
-                TRACE_L1("Stopping GCCleaner");
-                gcCleaner->stop();
-            }
-
-            if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
-                /*
-                 * When loading URL from the same domain only notify::uri signal is being sent.
-                 * This scenario happens only for Metro domain addresses.
-                 * When those addresses are detected and URL() waits for the result, send notification.
-                 */
-                notifyUrlLoadResult(URL, Core::ERROR_NONE);
-            } else {
-                /*
-                 * When domains of changed URL and saved URL match, store an updated URL.
-                 * URL should *NOT* be updated unconditionally as in case of load failure,
-                 * notify:uri signal is being sent for previously loaded URL.
-                 */
-                std::unique_lock<std::mutex> lock{urlData_.mutex};
-                if (extractDomain(URL) == extractDomain(urlData_.loadResult.loadUrl)) {
-                    TRACE_L1("URL updated, storing new loadResult URL: %s", URL.c_str());
-                    urlData_.loadResult.loadUrl = URL;
-                }
-            }
-
             _adminLock.Lock();
 
             std::list<Exchange::IWebBrowser::INotification*>::iterator index(_notificationClients.begin());
