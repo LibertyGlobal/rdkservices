@@ -1611,6 +1611,9 @@ namespace Plugin {
         void Deinitialize(PluginHost::IShell* service) override {
             _thread.Stop();
 
+            TRACE_L1("IWorkerPool stop");
+            Core::IWorkerPool::Instance().Stop(true);
+
             std::map<const string, SystemFactory>::iterator factory(_systemToFactory.begin());
 
             std::list<CDMi::ISystemFactory*> deinitialized;
