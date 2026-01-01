@@ -104,7 +104,7 @@ WK_EXPORT void WKPreferencesSetPageCacheEnabled(WKPreferencesRef preferences, bo
 #include <interfaces/IDisplayInfo.h>
 #endif
 
-#define URL_LOAD_RESULT_TIMEOUT_MS                                   (15 * 1000)
+#define URL_LOAD_RESULT_TIMEOUT_MS                                   (20 * 1000)
 
 #define GCCLEANER_PERIOD_SEC 4
 #define GCCLEANER_CLEANUP_TIMES 4
