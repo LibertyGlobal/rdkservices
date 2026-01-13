@@ -104,8 +104,6 @@ WK_EXPORT void WKPreferencesSetPageCacheEnabled(WKPreferencesRef preferences, bo
 #include <interfaces/IDisplayInfo.h>
 #endif
 
-#define URL_LOAD_RESULT_TIMEOUT_MS                                   (15 * 1000)
-
 #define GCCLEANER_PERIOD_SEC 4
 #define GCCLEANER_CLEANUP_TIMES 4
 
@@ -2268,12 +2266,6 @@ static GSourceFuncs _handlerIntervention =
 
         uint32_t URL(const string& URLwithParams) override
         {
-            return SetupURLInternal(URLwithParams);
-        }
-
-        uint32_t SetupURLInternal(const string& URLwithParams, bool waitForResult = true)
-        {
-            using namespace std::chrono;
             std::string newCertContents;
             std::string certsUrls;
             const string URL = getClientCertFromUrl(URLwithParams, newCertContents);
@@ -2284,14 +2276,13 @@ static GSourceFuncs _handlerIntervention =
             if (_context != nullptr) {
                 using SetURLData = std::tuple<WebKitImplementation*, string, string>;
                 auto *data = new SetURLData(this, URL, newCertContents);
-                const auto now = steady_clock::now();
 
-                if (waitForResult) {
+                {
                     std::unique_lock<std::mutex> lock{urlData_.mutex};
-                    urlData_.result = Core::ERROR_TIMEDOUT;
                     urlData_.loadResult.loadUrl = URL;
                     urlData_.loadResult.waitForFailedOrFinished = true;
                     urlData_.loadResult.waitForExceptionalPageClosureAfterBootUrl = false;
+                    urlData_.loadStart = std::chrono::steady_clock::now();
                 }
 
                 g_main_context_invoke_full(
@@ -2328,36 +2319,8 @@ static GSourceFuncs _handlerIntervention =
                     [](gpointer customdata) {
                         delete static_cast<SetURLData*>(customdata);
                     });
-                if (waitForResult) {
-                    std::unique_lock<std::mutex> lock{urlData_.mutex};
-                    TRACE_L1("Start waiting for the load result of url: %s", URL.c_str());
-                    urlData_.cond.wait_for(
-                        lock,
-                        milliseconds{URL_LOAD_RESULT_TIMEOUT_MS},
-                        [this](){return Core::ERROR_TIMEDOUT != urlData_.result;});
 
-                    const auto diff = steady_clock::now() - now;
-
-                    TRACE_L1(
-                            "URL: %s, load result %s(%d), %dms",
-                            urlData_.url.c_str(),
-                            Core::ERROR_NONE == urlData_.result ? "OK" : "NOK",
-                            int(urlData_.result),
-                            int(duration_cast<milliseconds>(diff).count()));
-
-                    ODH_WARNING(
-                            "WPE0040",
-                            WPE_CONTEXT_WITH_URL(urlData_.url.c_str()),
-                            "URL: %s, load result %s(%d), %dms",
-                            urlData_.url.c_str(),
-                            Core::ERROR_NONE == urlData_.result ? "OK" : "NOK",
-                            int(urlData_.result),
-                            int(duration_cast<milliseconds>(diff).count()));
-
-                            return urlData_.result; 
-                    } else {
-                        return Core::ERROR_NONE;
-                    }
+                return Core::ERROR_NONE;
             }
             else
             {
@@ -2743,7 +2706,7 @@ static GSourceFuncs _handlerIntervention =
                  * This scenario happens only for Metro domain addresses.
                  * When those addresses are detected and URL() waits for the result, send notification.
                  */
-                notifyUrlLoadResult(URL, Core::ERROR_NONE);
+                notifyUrlLoadResult(Core::ERROR_NONE);
             } else {
                 /*
                  * When domains of changed URL and saved URL match, store an updated URL.
@@ -2798,28 +2761,33 @@ static GSourceFuncs _handlerIntervention =
             if ( (_httpStatusCode != 200 ) && (_httpStatusCode != -1) ) {
                 status = Core::ERROR_INCORRECT_URL;
             }
-            notifyUrlLoadResult(URL, status);
 
-            _adminLock.Lock();
+            //OnLoadFinished() is currenly called twice - as a result of:
+            // - loadChangedCallback()
+            // - documentLoadedCallback()
+            // make sure notification to the outside is called just once
+            if (notifyUrlLoadResult(status)) {
+                _adminLock.Lock();
 
-            {
-                std::list<Exchange::IWebBrowser::INotification*>::iterator index(_notificationClients.begin());
+                {
+                    std::list<Exchange::IWebBrowser::INotification*>::iterator index(_notificationClients.begin());
 
-                while (index != _notificationClients.end()) {
-                    (*index)->LoadFinished(URL, _httpStatusCode);
-                    index++;
+                    while (index != _notificationClients.end()) {
+                        (*index)->LoadFinished(URL, _httpStatusCode);
+                        index++;
+                    }
                 }
-            }
-            {
-                std::list<Exchange::IBrowser::INotification*>::iterator index(_notificationBrowserClients.begin());
+                {
+                    std::list<Exchange::IBrowser::INotification*>::iterator index(_notificationBrowserClients.begin());
 
-                while (index != _notificationBrowserClients.end()) {
-                    (*index)->LoadFinished(URL);
-                    index++;
+                    while (index != _notificationBrowserClients.end()) {
+                        (*index)->LoadFinished(URL);
+                        index++;
+                    }
                 }
-            }
 
-            _adminLock.Unlock();
+                _adminLock.Unlock();
+            }
         }
 
         bool OnLoadFailedCheckWaitingForBootUrl(const string& URL) {
@@ -2841,7 +2809,7 @@ static GSourceFuncs _handlerIntervention =
 
             TRACE_L1("%s", url.c_str());
 
-            notifyUrlLoadResult(URL, Core::ERROR_INCORRECT_URL);
+            notifyUrlLoadResult(Core::ERROR_INCORRECT_URL);
 
             _adminLock.Lock();
 
@@ -3301,7 +3269,7 @@ static GSourceFuncs _handlerIntervention =
                 // our setup of boot url was interrupted by window.close in the middle of loading the boot url
                 // here we need to "fix the reality" by doing extra _bootUrl setup
                 SYSLOG(Logging::Notification, (_T("boot URL setup + window.close: NotifyClosure: Repeat load boot url started")));
-                SetupURLInternal(_bootUrl, false);
+                SetURL(_bootUrl);
                 SYSLOG(Logging::Notification, (_T("boot URL setup + window.close: NotifyClosure: Repeat load boot url finished")));
                 return;
             }
@@ -4622,9 +4590,8 @@ static GSourceFuncs _handlerIntervention =
 
         struct {
             mutable std::mutex mutex;
-            std::condition_variable cond;
             string url;
-            uint32_t result = Core::ERROR_TIMEDOUT;
+            std::chrono::time_point<std::chrono::steady_clock> loadStart{};
             struct {
                 bool    waitForFailedOrFinished = false;
                 bool    waitForExceptionalPageClosureAfterBootUrl = false;
@@ -4686,20 +4653,36 @@ static GSourceFuncs _handlerIntervention =
         bool _hdrSupported;
 #endif // HAS_SCREEN_HDR_API
 
-        void notifyUrlLoadResult(const string &URL, uint32_t result)
+        bool notifyUrlLoadResult(uint32_t result)
         {
+            bool notified = false;
             std::unique_lock<std::mutex> lock{urlData_.mutex};
             TRACE_L1("waitForFailedOrFinished = %d, result = %s, url = %s",
                         urlData_.loadResult.waitForFailedOrFinished,
                         Core::ERROR_NONE == result ? "OK" : "NOK",
-                        URL.c_str());
-            if (urlData_.loadResult.waitForFailedOrFinished && normalizedHostNamesInUrlsEqual(URL, urlData_.loadResult.loadUrl)) {
-                TRACE_L1("Notyfying with result = %s, url: %s\n", Core::ERROR_NONE == result ? "OK" : "NOK", URL.c_str());
-                urlData_.result = result;
+                        urlData_.url.c_str());
+            if (urlData_.loadResult.waitForFailedOrFinished && normalizedHostNamesInUrlsEqual(urlData_.url, urlData_.loadResult.loadUrl)) {
                 urlData_.loadResult.waitForFailedOrFinished = false;
                 urlData_.loadResult.loadUrl = string("");
-                urlData_.cond.notify_one();
+                const auto diff = std::chrono::steady_clock::now() - urlData_.loadStart;
+                TRACE_L1(
+                        "URL: %s, load result %s(%d), %dms",
+                        urlData_.url.c_str(),
+                        Core::ERROR_NONE == result ? "OK" : "NOK",
+                        int(result),
+                        int(std::chrono::duration_cast<std::chrono::milliseconds>(diff).count()));
+
+                ODH_WARNING(
+                        "WPE0040",
+                        WPE_CONTEXT_WITH_URL(urlData_.url.c_str()),
+                        "URL: %s, load result %s(%d), %dms",
+                        urlData_.url.c_str(),
+                        Core::ERROR_NONE == result ? "OK" : "NOK",
+                        int(result),
+                        int(std::chrono::duration_cast<std::chrono::milliseconds>(diff).count()));
+                notified = true;
             }
+            return notified;
         }
     };
 
