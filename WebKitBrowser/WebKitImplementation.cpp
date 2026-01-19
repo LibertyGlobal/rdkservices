@@ -4533,7 +4533,7 @@ static GSourceFuncs _handlerIntervention =
                 return;
 
 #ifdef WEBKIT_GLIB_API
-            std::string activeURL(webkit_web_view_get_uri(_view));
+            std::string activeURL(webkit_web_view_get_uri(_view)?:_T("<undefined>"));
             if (_webprocessPID == -1) {
               _webprocessPID = webkit_web_view_get_web_process_identifier(_view);
             }
