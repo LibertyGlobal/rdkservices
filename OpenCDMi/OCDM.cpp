@@ -109,6 +109,7 @@ namespace Plugin {
         ForceLinkingOfOpenCDM();
 		#endif
 
+        std::lock_guard<std::recursive_mutex> lock {_serviceInitMutex};
         string message;
 
         ASSERT(service != nullptr);
@@ -157,8 +158,13 @@ namespace Plugin {
 
     /*virtual*/ void OCDM::Deinitialize(PluginHost::IShell* service)
     {
+        std::lock_guard<std::recursive_mutex> lock {_serviceInitMutex};
         ASSERT(_service == service);
 
+        if (_service == nullptr) {
+            TRACE(Trace::Error, (_T("OCDM::Deinitialize called with null _service; will be skipped. %d"), __LINE__));
+            return;
+        }
         _service->Unregister(&_notification);
 
         if(_opencdmi != nullptr) {
@@ -169,7 +175,7 @@ namespace Plugin {
             }
 
             _opencdmi->Unregister(&_notification);
-            _opencdmi->Deinitialize(service);
+            _opencdmi->Deinitialize(_service);
             RPC::IRemoteConnection* connection(_service->RemoteConnection(_connectionId));
 
             UnregisterAll();
@@ -193,7 +199,7 @@ namespace Plugin {
             }
         }
 
-        PluginHost::ISubSystem* subSystem = service->SubSystems();
+        PluginHost::ISubSystem* subSystem = _service->SubSystems();
 
         if (subSystem != nullptr) {
             if(subSystem->IsActive(PluginHost::ISubSystem::DECRYPTION) == true) {
