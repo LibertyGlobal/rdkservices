@@ -159,7 +159,24 @@ namespace Plugin {
     {
         ASSERT(_service == service);
 
-        _service->Unregister(&_notification);
+        PluginHost::IShell* deinitialized_service = nullptr;
+        {
+            std::lock_guard<std::mutex> lock {_serviceMutex};
+            if (_service == service) {
+                deinitialized_service = _service;
+                _service = nullptr;
+            } else {
+                TRACE(Trace::Error, (_T("OCDM::Deinitialize called on unmatching OCDM service (possible Thunder bug); will be skipped. %d"), __LINE__));
+                return;
+            }
+        }
+
+        if (deinitialized_service == nullptr) {
+            TRACE(Trace::Error, (_T("OCDM::Deinitialize called with null _service (either not initialized, deinitialization in progress or already deinitialized); will be skipped. %d"), __LINE__));
+            return;
+        }
+
+        deinitialized_service->Unregister(&_notification);
 
         if(_opencdmi != nullptr) {
 
@@ -170,7 +187,7 @@ namespace Plugin {
 
             _opencdmi->Unregister(&_notification);
             _opencdmi->Deinitialize(service);
-            RPC::IRemoteConnection* connection(_service->RemoteConnection(_connectionId));
+            RPC::IRemoteConnection* connection(deinitialized_service->RemoteConnection(_connectionId));
 
             UnregisterAll();
 
@@ -193,7 +210,7 @@ namespace Plugin {
             }
         }
 
-        PluginHost::ISubSystem* subSystem = service->SubSystems();
+        PluginHost::ISubSystem* subSystem = deinitialized_service->SubSystems();
 
         if (subSystem != nullptr) {
             if(subSystem->IsActive(PluginHost::ISubSystem::DECRYPTION) == true) {
@@ -202,8 +219,7 @@ namespace Plugin {
             }
         }
 
-        _service->Release();
-        _service = nullptr;
+        deinitialized_service->Release();
         _connectionId = 0;
     }
 
