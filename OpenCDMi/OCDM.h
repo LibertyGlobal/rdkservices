@@ -20,6 +20,8 @@
 #ifndef __OPENCDMI_H
 #define __OPENCDMI_H
 
+#include <mutex>
+
 #include "Module.h"
 #include <interfaces/IContentDecryption.h>
 #include <interfaces/IMemory.h>
@@ -225,6 +227,7 @@ namespace Plugin {
         Exchange::IContentDecryption* _opencdmi;
         Exchange::IMemory* _memory;
         Core::Sink<Notification> _notification;
+        std::recursive_mutex _serviceInitMutex;
     };
 } //namespace Plugin
 
