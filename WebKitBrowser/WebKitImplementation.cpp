@@ -2699,13 +2699,14 @@ static GSourceFuncs _handlerIntervention =
                 TRACE_L1("Stopping GCCleaner");
                 gcCleaner->stop();
             }
-
+            TRACE_L1("isNewUrlBlankUrl: %d, isCurrUrlMetroSubdomain : %d, isNewUrlMetroSubdomain %d", isNewUrlBlankUrl, isCurrUrlMetroSubdomain, isNewUrlMetroSubdomain);
             if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
                 /*
                  * When loading URL from the same domain only notify::uri signal is being sent.
                  * This scenario happens only for Metro domain addresses.
                  * When those addresses are detected and URL() waits for the result, send notification.
                  */
+                TRACE_L1("Calling notifyUrlLoadResult()");
                 notifyUrlLoadResult(Core::ERROR_NONE);
             } else {
                 /*
