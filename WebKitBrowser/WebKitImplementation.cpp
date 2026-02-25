@@ -2678,15 +2678,12 @@ static GSourceFuncs _handlerIntervention =
 
         void OnURLChanged(const string& URL)
         {
-            static const auto metroDomain = _bootUrl.substr(0, _bootUrl.find('#'));
 
             TRACE_L1("%s", URL.c_str());
 
             const bool isCurrentUrlBootUrl = urlValue() == _bootUrl;
-            const bool isCurrUrlMetroSubdomain = urlValue().find(metroDomain) != string::npos;
             const bool isNewUrlBootUrl = URL == _bootUrl;
             const bool isNewUrlBlankUrl = URL.find("about:blank") != string::npos;
-            const bool isNewUrlMetroSubdomain = URL.find(metroDomain) != string::npos;
 
             urlValue(URL);
 
@@ -2700,12 +2697,13 @@ static GSourceFuncs _handlerIntervention =
                 gcCleaner->stop();
             }
 
-            if (isNewUrlBlankUrl || (isCurrUrlMetroSubdomain && isNewUrlMetroSubdomain)) {
+            if (isNewUrlBlankUrl) {
                 /*
                  * When loading URL from the same domain only notify::uri signal is being sent.
                  * This scenario happens only for Metro domain addresses.
                  * When those addresses are detected and URL() waits for the result, send notification.
                  */
+                TRACE_L1("Notify Url Load Result");
                 notifyUrlLoadResult(Core::ERROR_NONE);
             } else {
                 /*
