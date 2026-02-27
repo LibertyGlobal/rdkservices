@@ -2793,6 +2793,28 @@ static GSourceFuncs _handlerIntervention =
        void OnProcessSwapped()
        {
            fprintf(stderr,"------Hridhya------- process swap event received in WebKitBrowser Plugin");
+
+          _adminLock.Lock();
+
+           {
+                std::list<Exchange::IWebBrowser::INotification*>::iterator index(_notificationClients.begin());
+
+                while (index != _notificationClients.end()) {
+                    (*index)->ProcessSwapped();
+                    index++;
+                }
+           }
+
+           {
+                std::list<Exchange::IBrowser::INotification*>::iterator index(_notificationBrowserClients.begin());
+
+                while (index != _notificationBrowserClients.end()) {
+                    (*index)->ProcessSwapped();
+                    index++;
+                }
+           }
+
+           _adminLock.Unlock();
        }
 
         bool OnLoadFailedCheckWaitingForBootUrl(const string& URL) {
