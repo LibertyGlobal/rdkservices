@@ -218,6 +218,14 @@
                 ]
             }
         },
+        "processswapped": {
+            "summary": "Triggered when the browser swaps WPEWebProcess",
+            "params": {
+                "type":"object",
+                "properties": {
+                }
+            }
+        },
         "loadfinished": {   
             "summary": "Triggered when the initial HTML document has been completely loaded and parsed",
             "params": {

@@ -2805,15 +2805,6 @@ static GSourceFuncs _handlerIntervention =
                 }
            }
 
-           {
-                std::list<Exchange::IBrowser::INotification*>::iterator index(_notificationBrowserClients.begin());
-
-                while (index != _notificationBrowserClients.end()) {
-                    (*index)->ProcessSwapped();
-                    index++;
-                }
-           }
-
            _adminLock.Unlock();
        }
 

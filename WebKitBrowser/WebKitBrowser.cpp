@@ -337,6 +337,13 @@ namespace Plugin {
         Exchange::JWebBrowser::Event::LoadFailed(*this, URL);
     }
 
+    void WebKitBrowser::ProcessSwapped()
+    {
+        TRACE(Trace::Information, (_T("Inside ProcessSwapped()")));
+        _service->Notify(message);
+        Exchange::JWebBrowser::Event::ProcessSwapped(*this);
+    }
+
     void WebKitBrowser::URLChange(const string& URL, bool loaded)
     {
         string message(string("{ \"url\": \"") + URL + string("\", \"loaded\": ") + (loaded ? string("true") : string("false")) + string(" }"));
