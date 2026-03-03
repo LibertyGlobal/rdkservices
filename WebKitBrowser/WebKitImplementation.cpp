@@ -2792,7 +2792,7 @@ static GSourceFuncs _handlerIntervention =
 
        void OnProcessSwapped()
        {
-           fprintf(stderr,"------Hridhya------- process swap event received in WebKitBrowser Plugin");
+           TRACE_L1("ProcessSwapped - Process swap event received in WebKitBrowser Plugin");
 
           _adminLock.Lock();
 
@@ -3565,7 +3565,6 @@ static GSourceFuncs _handlerIntervention =
 
        static void processSwappedCallback(WebKitWebView *webView, WebKitImplementation* browser)
        {
-            fprintf(stderr,"------Hridhya------- Inside processSwappedCallback in webkitbrowser plugin");
             browser->OnProcessSwapped();
        }
 
