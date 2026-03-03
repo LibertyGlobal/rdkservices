@@ -339,8 +339,8 @@ namespace Plugin {
 
     void WebKitBrowser::ProcessSwapped()
     {
-        TRACE(Trace::Information, (_T("Inside ProcessSwapped()")));
-        _service->Notify(message);
+        TRACE(Trace::Information, (_T("ProcessSwapped: \"true\"")));
+        _service->Notify(_T("{\"ProcessSwapped\": true }");
         Exchange::JWebBrowser::Event::ProcessSwapped(*this);
     }
 
