@@ -2788,6 +2788,24 @@ static GSourceFuncs _handlerIntervention =
             }
         }
 
+        void OnProcessSwapped()
+        {
+	   TRACE_L1("ProcessSwapped - Process swap event received in WebKitBrowser Plugin");
+
+           _adminLock.Lock();
+
+           {
+                std::list<Exchange::IWebBrowser::INotification*>::iterator index(_notificationClients.begin());
+
+                while (index != _notificationClients.end()) {
+                    (*index)->ProcessSwapped();
+                    index++;
+                }
+           }
+
+	   _adminLock.Unlock();
+        }
+
         bool OnLoadFailedCheckWaitingForBootUrl(const string& URL) {
             bool postponeNotification = false;
             if (URL == _bootUrl) {
@@ -3543,6 +3561,11 @@ static GSourceFuncs _handlerIntervention =
             browser->OnLoadFinished(Core::ToString(uri.c_str()));
         }
 
+        static void processSwappedCallback(WebKitWebView *webView, WebKitImplementation* browser)
+        {
+            browser->OnProcessSwapped();
+        }
+
         static void loadFailedCallback(WebKitWebView*, WebKitLoadEvent loadEvent, const gchar* failingURI, GError* error, WebKitImplementation* browser)
         {
             string message(string("{ \"url\": \"") + failingURI + string("\", \"Error message\": \"") + error->message + string("\", \"loadEvent\":") + Core::NumberType<uint32_t>(loadEvent).Text() + string(" }"));
@@ -3906,6 +3929,7 @@ static GSourceFuncs _handlerIntervention =
             g_signal_connect(_view, "notify::is-web-process-responsive", reinterpret_cast<GCallback>(isWebProcessResponsiveCallback), this);
             g_signal_connect(_view, "load-failed", reinterpret_cast<GCallback>(loadFailedCallback), this);
             g_signal_connect(_view, "document-loaded", reinterpret_cast<GCallback>(documentLoadedCallback), this);
+            g_signal_connect(_view, "process-swapped", reinterpret_cast<GCallback>(processSwappedCallback), this);
 
             _configurationCompleted.SetState(true);
 

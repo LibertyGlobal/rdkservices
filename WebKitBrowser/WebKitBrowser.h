@@ -105,6 +105,10 @@ namespace Plugin {
             {
                 _parent.LoadFailed(URL);
             }
+            void ProcessSwapped() override
+            {
+                _parent.ProcessSwapped();
+            }
             void URLChange(const string& URL, bool loaded) override
             {
                 _parent.URLChange(URL, loaded);
@@ -269,6 +273,7 @@ namespace Plugin {
         void Deactivated(RPC::IRemoteConnection* connection);
         void LoadFinished(const string& URL, int32_t code);
         void LoadFailed(const string& URL);
+        void ProcessSwapped();
         void URLChange(const string& URL, bool loaded);
         void VisibilityChange(const bool hidden);
         void PageClosure();
