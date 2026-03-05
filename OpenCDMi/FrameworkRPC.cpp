@@ -912,6 +912,13 @@ namespace Plugin {
                 bool hadInitializationError = false;
                 if (system != nullptr) {
                     result = Exchange::OCDM_RESULT::OCDM_SUCCESS;
+                    // Introduce response timeout on first call to simulate IPC failure
+                    static int timeoutTestCounter = 0;
+                    if (timeoutTestCounter == 0) {
+                        timeoutTestCounter++;
+                        TRACE_L1("Simulating response timeout for first CreateContext call");
+                        sleep(15);
+                    }
                     CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                     if (systemExt != nullptr) {
 
