@@ -1014,6 +1014,7 @@ namespace Plugin {
                                       callback->OnKeyStatusUpdate( entry.Id(), entry.Length(), Exchange::ISession::StatusPending);
                                   }
                               }
+                              TRACE(Trace::Error, (_T("suresh calling RefContext()"), __LINE__));
                               RefContext(keySystem);
                               _adminLock.Unlock();
                          }
@@ -1331,6 +1332,7 @@ namespace Plugin {
                 }
 
                 //This is to make sure that ContextImplementation is released after session is destroyed
+                TRACE(Trace::Warning, (_T("suresh ReleaseContext() is calling"), session));
                 ReleaseContext(keySystem);
                 _adminLock.Unlock();
             }
@@ -1759,14 +1761,42 @@ namespace Plugin {
             CDMi::IMediaKeys* result = nullptr;
 
             if (keySystem.empty() == false) {
-                std::map<const std::string, SystemFactory>::iterator index(_systemToFactory.find(keySystem));
+                //std::map<const std::string, SystemFactory>::iterator index(_systemToFactory.find(keySystem));
 
-                if (_systemToFactory.end() != index) {
-                    result = index->second.Factory->Instance();
+               // if (_systemToFactory.end() != index) {
+                //    result = index->second.Factory->Instance();
+                //}
+                const uint32_t MAX_CONTEXT_RETRY = 5;
+                const uint32_t RETRY_DELAY_MS = 100;
+                
+                for (uint32_t retry = 0; retry < MAX_CONTEXT_RETRY; retry++) {
+                    std::map<const std::string, SystemFactory>::iterator index(_systemToFactory.find(keySystem));
+                    
+                    if (_systemToFactory.end() != index) {
+                        result = index->second.Factory->Instance();
+                        if (result != nullptr) {
+                            if (retry > 0) {
+                                TRACE(Trace::Information, ("suresh KeySystem(%s) found after %d retries => %p", 
+                                      keySystem.c_str(), retry, result));
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // If not found and retries remaining, wait and retry
+                    if (retry < MAX_CONTEXT_RETRY - 1) {
+                        TRACE(Trace::Warning, ("suresh Context not found for: %s, retrying (%d/%d)", 
+                              keySystem.c_str(), retry + 1, MAX_CONTEXT_RETRY));
+                        usleep(RETRY_DELAY_MS * 1000);
+                    }
+                 }
+                
+                if (result == nullptr) {
+                    TRACE(Trace::Error, ("suresh Context not found for: %s after %d retries", 
+                          keySystem.c_str(), MAX_CONTEXT_RETRY));
                 }
             }
-
-            TRACE(Trace::Information, ("KeySystem(%s) => %p", keySystem.c_str(), result));
+            TRACE(Trace::Information, ("suresh KeySystem(%s) => %p", keySystem.c_str(), result));
             return (result);
         }
 
