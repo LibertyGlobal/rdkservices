@@ -36,10 +36,14 @@
 #define FPD_LED_DEVICE_WPS_CONNECTING "WPS_CONNECTING"
 #define FPD_LED_DEVICE_WPS_CONNECTED "WPS_CONNECTED"
 #define FPD_LED_DEVICE_WPS_ERROR "WPS_ERROR"
-#define FPD_LED_DEVICE_FACTORY_RESET "FACTORY_RESET"
-#define FPD_LED_DEVICE_USB_UPGRADE "USB_UPGRADE"
-#define FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR "DOWNLOAD_ERROR"
-
+#define FPD_LED_DEVICE_WIFI_ERROR "WIFI_ERROR"
+#define FPD_LED_DEVICE_BOOT_IN_PROGRESS "BOOT_IN_PROGRESS"
+#define FPD_LED_DEVICE_COLDSTANDBY "COLDSTANDBY"
+#define FPD_LED_DEVICE_PSU_FAILURE "PSU_FAILURE"
+#define FPD_LED_DEVICE_WPS_SES_OVERLAP "WPS_SES_OVERLAP"
+#define FPD_LED_DEVICE_IP_ACQUIRED "IP_ACQUIRED"
+#define FPD_LED_DEVICE_NO_IP "NO_IP"
+#define FPD_LED_DEVICE_RCU_COMMAND "RCU_COMMAND"
 
 
 namespace WPEFramework
@@ -138,14 +142,19 @@ namespace WPEFramework
                 dsError_t err = dsFPGetSupportedLEDStates (&states);
                 if (!err) {
                     if(!states)supportedLEDStates.emplace_back(FPD_LED_DEVICE_NONE);
-                    if(states & (1<<dsFPD_LED_DEVICE_ACTIVE))supportedLEDStates.emplace_back(FPD_LED_DEVICE_ACTIVE);
-                    if(states & (1<<dsFPD_LED_DEVICE_STANDBY))supportedLEDStates.emplace_back(FPD_LED_DEVICE_STANDBY);
-                    if(states & (1<<dsFPD_LED_DEVICE_WPS_CONNECTING))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_CONNECTING);
-                    if(states & (1<<dsFPD_LED_DEVICE_WPS_CONNECTED))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_CONNECTED);
-                    if(states & (1<<dsFPD_LED_DEVICE_WPS_ERROR))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_ERROR);
-                    if(states & (1<<dsFPD_LED_DEVICE_FACTORY_RESET))supportedLEDStates.emplace_back(FPD_LED_DEVICE_FACTORY_RESET);
-                    if(states & (1<<dsFPD_LED_DEVICE_USB_UPGRADE))supportedLEDStates.emplace_back(FPD_LED_DEVICE_USB_UPGRADE);
-                    if(states & (1<<dsFPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR))supportedLEDStates.emplace_back(FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR);
+                    if(states & (dsFPD_LED_DEVICE_ACTIVE))supportedLEDStates.emplace_back(FPD_LED_DEVICE_ACTIVE);
+                    if(states & (dsFPD_LED_DEVICE_STANDBY))supportedLEDStates.emplace_back(FPD_LED_DEVICE_STANDBY);
+                    if(states & (dsFPD_LED_DEVICE_WPS_CONNECTING))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_CONNECTING);
+                    if(states & (dsFPD_LED_DEVICE_WPS_CONNECTED))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_CONNECTED);
+                    if(states & (dsFPD_LED_DEVICE_WPS_ERROR))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_ERROR);
+                    if(states & (dsFPD_LED_DEVICE_WIFI_ERROR))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WIFI_ERROR);
+		    if(states & (dsFPD_LED_DEVICE_BOOT_IN_PROGRESS))supportedLEDStates.emplace_back(FPD_LED_DEVICE_BOOT_IN_PROGRESS);
+                    if(states & (dsFPD_LED_DEVICE_COLDSTANDBY))supportedLEDStates.emplace_back(FPD_LED_DEVICE_COLDSTANDBY);
+                    if(states & (dsFPD_LED_DEVICE_PSU_FAILURE))supportedLEDStates.emplace_back(FPD_LED_DEVICE_PSU_FAILURE);
+                    if(states & (dsFPD_LED_DEVICE_WPS_SES_OVERLAP))supportedLEDStates.emplace_back(FPD_LED_DEVICE_WPS_SES_OVERLAP);
+                    if(states & (dsFPD_LED_DEVICE_IP_ACQUIRED))supportedLEDStates.emplace_back(FPD_LED_DEVICE_IP_ACQUIRED);
+                    if(states & (dsFPD_LED_DEVICE_NO_IP))supportedLEDStates.emplace_back(FPD_LED_DEVICE_NO_IP);
+                    if(states & (dsFPD_LED_DEVICE_RCU_COMMAND))supportedLEDStates.emplace_back(FPD_LED_DEVICE_RCU_COMMAND);
                     success = true;
                 } else {
                         LOGERR("dsFPGetSupportedLEDStates returned error %d", err);
@@ -170,40 +179,30 @@ namespace WPEFramework
 
             try
             {
-                dsFPDLedState_t state;
+               dsFPDLedState_t state;
                dsError_t err = dsFPGetLEDState (&state);
                if (!err) {
                     success = true;
-                    switch (state) {
-                    case dsFPD_LED_DEVICE_NONE:
-                        response["state"] = FPD_LED_DEVICE_NONE;
-                        break;
-                    case dsFPD_LED_DEVICE_ACTIVE:
-                        response["state"] = FPD_LED_DEVICE_ACTIVE;
-                        break;
-                    case dsFPD_LED_DEVICE_STANDBY:
-                        response["state"] = FPD_LED_DEVICE_STANDBY;
-                        break;
-                    case dsFPD_LED_DEVICE_WPS_CONNECTING:
-                        response["state"] = FPD_LED_DEVICE_WPS_CONNECTING;
-                        break;
-                    case dsFPD_LED_DEVICE_WPS_CONNECTED:
-                        response["state"] = FPD_LED_DEVICE_WPS_CONNECTED;
-                        break;
-                    case dsFPD_LED_DEVICE_WPS_ERROR:
-                        response["state"] = FPD_LED_DEVICE_WPS_ERROR;
-                        break;
-                    case dsFPD_LED_DEVICE_FACTORY_RESET:
-                        response["state"] = FPD_LED_DEVICE_FACTORY_RESET;
-                        break;
-                    case dsFPD_LED_DEVICE_USB_UPGRADE:
-                        response["state"] = FPD_LED_DEVICE_USB_UPGRADE;
-                        break;
-                    case dsFPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR:
-                        response["state"] = FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR;
-                        break;
-
-                    default :
+		    static const std::unordered_map<dsFPDLedState_t, const char*> stateToString = {
+                       {dsFPD_LED_DEVICE_NONE, FPD_LED_DEVICE_NONE},
+                       {dsFPD_LED_DEVICE_ACTIVE, FPD_LED_DEVICE_ACTIVE},
+                       {dsFPD_LED_DEVICE_STANDBY, FPD_LED_DEVICE_STANDBY},
+                       {dsFPD_LED_DEVICE_WPS_CONNECTING, FPD_LED_DEVICE_WPS_CONNECTING},
+                       {dsFPD_LED_DEVICE_WPS_CONNECTED, FPD_LED_DEVICE_WPS_CONNECTED},
+                       {dsFPD_LED_DEVICE_WPS_ERROR, FPD_LED_DEVICE_WPS_ERROR},
+                       {dsFPD_LED_DEVICE_WIFI_ERROR, FPD_LED_DEVICE_WIFI_ERROR},
+                       {dsFPD_LED_DEVICE_BOOT_IN_PROGRESS, FPD_LED_DEVICE_BOOT_IN_PROGRESS},
+                       {dsFPD_LED_DEVICE_COLDSTANDBY, FPD_LED_DEVICE_COLDSTANDBY},
+                       {dsFPD_LED_DEVICE_PSU_FAILURE, FPD_LED_DEVICE_PSU_FAILURE},
+                       {dsFPD_LED_DEVICE_WPS_SES_OVERLAP, FPD_LED_DEVICE_WPS_SES_OVERLAP},
+                       {dsFPD_LED_DEVICE_IP_ACQUIRED, FPD_LED_DEVICE_IP_ACQUIRED},
+                       {dsFPD_LED_DEVICE_NO_IP, FPD_LED_DEVICE_NO_IP},
+                       {dsFPD_LED_DEVICE_RCU_COMMAND, FPD_LED_DEVICE_RCU_COMMAND},
+                    };
+                    auto it = stateToString.find(state);
+                    if (it != stateToString.end()) {
+                        response["state"] = it->second;
+                    } else {
                         LOGERR("Unsupported LEDState %d", state);
                         LOGTRACEMETHODFIN();
                         return WPEFramework::Core::ERROR_BAD_REQUEST;
@@ -239,48 +238,40 @@ namespace WPEFramework
             bool success = false;
             try
             {
-                dsFPDLedState_t state = dsFPD_LED_DEVICE_NONE;
-                if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_ACTIVE, strlen(FPD_LED_DEVICE_ACTIVE)) &&
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_ACTIVE)) ){
-                    state = dsFPD_LED_DEVICE_ACTIVE;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_STANDBY, strlen(FPD_LED_DEVICE_STANDBY)) &&
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_STANDBY)) ){
-                    state = dsFPD_LED_DEVICE_STANDBY;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_WPS_CONNECTING, strlen(FPD_LED_DEVICE_WPS_CONNECTING)) && 
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_WPS_CONNECTING))){
-                    state = dsFPD_LED_DEVICE_WPS_CONNECTING;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_WPS_CONNECTED, strlen(FPD_LED_DEVICE_WPS_CONNECTED)) &&
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_WPS_CONNECTED)) ){
-                    state = dsFPD_LED_DEVICE_WPS_CONNECTED;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_WPS_ERROR, strlen(FPD_LED_DEVICE_WPS_ERROR)) &&
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_WPS_ERROR)) ){
-                    state = dsFPD_LED_DEVICE_WPS_ERROR;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_FACTORY_RESET, strlen(FPD_LED_DEVICE_FACTORY_RESET)) &&
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_FACTORY_RESET)) ){
-                    state = dsFPD_LED_DEVICE_FACTORY_RESET;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_USB_UPGRADE, strlen(FPD_LED_DEVICE_USB_UPGRADE)) &&
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_USB_UPGRADE)) ){
-                    state = dsFPD_LED_DEVICE_USB_UPGRADE;
-                } else if (0==strncmp(strLedState.c_str(), FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR, strlen(FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR)) && 
-				(strlen(strLedState.c_str()) == strlen(FPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR)) ){
-                    state = dsFPD_LED_DEVICE_SOFTWARE_DOWNLOAD_ERROR;
-                } else {
+	        static const std::unordered_map<std::string, dsFPDLedState_t> stateMap = {
+                   {FPD_LED_DEVICE_ACTIVE, dsFPD_LED_DEVICE_ACTIVE},
+                   {FPD_LED_DEVICE_STANDBY, dsFPD_LED_DEVICE_STANDBY},
+                   {FPD_LED_DEVICE_WPS_CONNECTING, dsFPD_LED_DEVICE_WPS_CONNECTING},
+                   {FPD_LED_DEVICE_WPS_CONNECTED, dsFPD_LED_DEVICE_WPS_CONNECTED},
+                   {FPD_LED_DEVICE_WPS_ERROR, dsFPD_LED_DEVICE_WPS_ERROR},
+                   {FPD_LED_DEVICE_WIFI_ERROR, dsFPD_LED_DEVICE_WIFI_ERROR},
+                   {FPD_LED_DEVICE_BOOT_IN_PROGRESS, dsFPD_LED_DEVICE_BOOT_IN_PROGRESS},
+                   {FPD_LED_DEVICE_COLDSTANDBY, dsFPD_LED_DEVICE_COLDSTANDBY},
+                   {FPD_LED_DEVICE_PSU_FAILURE, dsFPD_LED_DEVICE_PSU_FAILURE},
+                   {FPD_LED_DEVICE_WPS_SES_OVERLAP, dsFPD_LED_DEVICE_WPS_SES_OVERLAP},
+                   {FPD_LED_DEVICE_IP_ACQUIRED, dsFPD_LED_DEVICE_IP_ACQUIRED},
+                   {FPD_LED_DEVICE_NO_IP, dsFPD_LED_DEVICE_NO_IP},
+                   {FPD_LED_DEVICE_RCU_COMMAND, dsFPD_LED_DEVICE_RCU_COMMAND}
+                };
+
+                auto it = stateMap.find(strLedState);
+		if (it == stateMap.end()) {
                     //Invalid parameter
                     LOGERR("UNKNOWN state : %s", strLedState.c_str());
                     LOGTRACEMETHODFIN();
                     return WPEFramework::Core::ERROR_BAD_REQUEST;
                 }
-                if (dsFPD_LED_DEVICE_NONE!=state) {
-		    LOGINFO("dsFPSetLEDState state:%s state:%d", strLedState.c_str(), state);
-                    dsError_t err = dsFPSetLEDState (state);
-                    if (!err) {
-                        success = true;
-                    } else {
-                        LOGERR("dsFPSetLEDState returned error %d", err);
-                        LOGTRACEMETHODFIN();
-                        return WPEFramework::Core::ERROR_ILLEGAL_STATE;
-                    }
-                }
+
+		dsFPDLedState_t state = it->second;
+		LOGINFO("dsFPSetLEDState state:%s state:%d", strLedState.c_str(), state);
+                dsError_t err = dsFPSetLEDState (state);
+                if (err == dsERR_NONE) {
+                    success = true;
+                } else {
+                    LOGERR("dsFPSetLEDState returned error %d", err);
+                    LOGTRACEMETHODFIN();
+                    return WPEFramework::Core::ERROR_ILLEGAL_STATE;
+               }
             }
             catch (...)
             {
