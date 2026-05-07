@@ -114,6 +114,9 @@ namespace
     static constexpr char ENV_URL_LIST_DELIMITER[] = "|"; // not allowed in URI
     static constexpr char MSG_CLIENT_CERT_DELIMITER[] = "\r\n";
 
+    static constexpr char KEYCODE_MAPPING_KEY[] = "KeycodeMapping=";
+    static constexpr char APP_TYPE_FBC[] = "FBC";
+
     bool isASCIISpace(char c)
     {
         return c == ' ' || c == '\t';
@@ -2264,6 +2267,26 @@ static GSourceFuncs _handlerIntervention =
             return string(new_url);
         }
 
+        std::string getKeycodeMappingFromUrl(const string& url)
+        {
+            auto pos = url.find(KEYCODE_MAPPING_KEY);
+            std::string value = "";
+            if (pos != std::string::npos) {
+                value = url.substr(pos + strlen(KEYCODE_MAPPING_KEY));
+                TRACE_L1("value: %s", value.c_str());
+            }
+            return value;
+        }
+
+        std::string removeQuerystring(std::string url)
+        {
+            auto pos = url.find('?');
+            if (pos != std::string::npos) {
+                url = url.substr(0,pos);
+            }
+            return url;
+        }
+
         uint32_t URL(const string& URLwithParams) override
         {
             std::string newCertContents;
@@ -2299,13 +2322,27 @@ static GSourceFuncs _handlerIntervention =
 
                         object->SetResponseHTTPStatusCode(-1);
 #ifdef WEBKIT_GLIB_API
+                        std::string value;
+                        value = object->getKeycodeMappingFromUrl(url);
                         if (certificatedata.empty())
                         {
-                            webkit_web_view_load_uri(object->_view, url.c_str());
+                            if (value == APP_TYPE_FBC) {
+                                url = object->removeQuerystring(url);
+                                webkit_web_view_load_uri(object->_view, url.c_str(), true);
+                            }
+                            else {
+                                webkit_web_view_load_uri(object->_view, url.c_str());
+                            }
                         }
                         else
                         {
-                            webkit_web_view_load_uri_and_cert(object->_view, url.c_str(), certificatedata.c_str());
+                            if (value == APP_TYPE_FBC) {
+                                url = object->removeQuerystring(url);
+                                webkit_web_view_load_uri_and_cert(object->_view, url.c_str(), certificatedata.c_str(), true);
+                            }
+                            else {
+                                webkit_web_view_load_uri_and_cert(object->_view, url.c_str(), certificatedata.c_str());
+                            }
                         }
 #else
                         object->SetNavigationRef(nullptr);
