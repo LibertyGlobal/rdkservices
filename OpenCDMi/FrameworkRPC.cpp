@@ -725,8 +725,13 @@ namespace Plugin {
                 // Loads the data stored for the specified session into the cdm object
                 virtual Exchange::OCDM_RESULT Load() override
                 {
+		    int svpRet = 0;
                     TRACE(Trace::Information, ("Load()"));
-                    return (Exchange::OCDM_RESULT)(_mediaKeySession->Load());
+		    svpRet = static_cast<int>(_mediaKeySession->Load());
+		    TRACE(Trace::Information, ("Load() status got from SVP is [%d] ", svpRet));
+		    TRACE(Trace::Information, ("Load() status populated to WPE is [%d] ", static_cast<Exchange::OCDM_RESULT>(svpRet)));
+		    return static_cast<Exchange::OCDM_RESULT>(svpRet);
+                    //return (Exchange::OCDM_RESULT)(_mediaKeySession->Load());
                 }
 
                 // Process a key message response.
