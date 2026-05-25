@@ -2308,6 +2308,9 @@ static GSourceFuncs _handlerIntervention =
                             webkit_web_view_load_uri_and_cert(object->_view, url.c_str(), certificatedata.c_str());
                         }
 #else
+                        // Stop any in-progress navigation before loading the new URL
+                        TRACE_L1("ARRISAPOL-3913: Stop any in progress navigation");
+                        WKPageStopLoading(object->_page);
                         object->SetNavigationRef(nullptr);
                         auto shellURL = WKURLCreateWithUTF8CString(url.c_str());
                         WKPageLoadURL(object->_page, shellURL);
