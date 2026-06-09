@@ -2274,16 +2274,20 @@ static GSourceFuncs _handlerIntervention =
             ODH_WARNING("WPE0020", WPE_CONTEXT_WITH_URL(URL.c_str()), "New URL: %s", URL.c_str());
 
             if (_context != nullptr) {
-                using SetURLData = std::tuple<WebKitImplementation*, string, string>;
-                auto *data = new SetURLData(this, URL, newCertContents);
-
                 {
                     std::unique_lock<std::mutex> lock{urlData_.mutex};
+                    if (urlData_.loadResult.waitForFailedOrFinished) {
+                        TRACE_L1("SetURL rejected, load already in progress for: %s", urlData_.loadResult.loadUrl.c_str());
+                        return Core::ERROR_INPROGRESS;
+                    }
                     urlData_.loadResult.loadUrl = URL;
                     urlData_.loadResult.waitForFailedOrFinished = true;
                     urlData_.loadResult.waitForExceptionalPageClosureAfterBootUrl = false;
                     urlData_.loadStart = std::chrono::steady_clock::now();
                 }
+
+                using SetURLData = std::tuple<WebKitImplementation*, string, string>;
+                auto *data = new SetURLData(this, URL, newCertContents);
 
                 g_main_context_invoke_full(
                     _context,
