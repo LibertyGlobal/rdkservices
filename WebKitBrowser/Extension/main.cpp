@@ -197,7 +197,7 @@ private:
         string messageString = Core::ToString(webkit_console_message_get_text(message));
         uint64_t line = static_cast<uint64_t>(webkit_console_message_get_line(message));
         const gchar* src = webkit_console_message_get_source_id(message);
-	TRACE_GLOBAL(Trace::Warning, (_T("consoleMessageSentCallback-> %s:%llu messageString: %s"), src, line, messageString.c_str()));
+	//TRACE_GLOBAL(Trace::Warning, (_T("consoleMessageSentCallback-> %s:%llu messageString: %s"), src, line, messageString.c_str()));
     }
     static gboolean userMessageReceivedCallback(WebKitWebPage* page, WebKitUserMessage* message)
     {
