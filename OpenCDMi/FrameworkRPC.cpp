@@ -264,16 +264,65 @@ namespace Plugin {
                 virtual ~ContextImplementation()
                 {
                     TRACE_L1("Destructing ContextImplementation %p for keySystem %s", this, _keySystem.c_str());
+                    LockGuard lock(_ctxMutex);
                     _parent.Remove(this, _keySystem, _cleanOnDestroy);
                     TRACE_L1("Destructed ContextImplementation for keySystem %s ", _keySystem.c_str());
                 }
-                void dummy() override
+                Exchange::OCDM_RESULT Init() override
                 {
-                    //intentionally left empty
+                    Exchange::OCDM_RESULT result = Exchange::OCDM_RESULT::OCDM_S_FALSE;
+                    CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent._parent.KeySystem(_keySystem));
+
+                    TRACE_L1("Init context for keySystem %s ", _keySystem.c_str());
+                    if (systemExt != nullptr) {
+                        LockGuard lock(_ctxMutex);
+                        bool hadInitializationError = false;
+                        for (int i = 0; i < INITIALIZATION_MAX_RETRY_COUNTER; i++) {
+
+                            result = static_cast<Exchange::OCDM_RESULT>(systemExt->InitializeCtx(_keySystem));
+
+                            if (result == Exchange::OCDM_RESULT::OCDM_SUCCESS) {
+                                if (hadInitializationError) {
+                                    TRACE(Trace::Warning, (_T("DRM initialization: success after re-trying, send SUCCESS notification")));
+                                    _parent._parent.initializationStatusNotify(_keySystem, Exchange::IContentDecryption::Status::SUCCESS);
+                                    ODH_ERROR_REPORT_CTX_ERROR(0, "DRM initialization: success after retrying", i);
+                                    hadInitializationError = false;
+                                }
+                                _initialized = true;
+                                break;
+                            } else {
+                                TRACE(Trace::Error, (_T("DRM initialization: failed, result=%08x counter=%d"), result, i));
+                                if (result == Exchange::OCDM_RESULT::OCDM_BUSY_CANNOT_INITIALIZE) {
+                                    if (!hadInitializationError) {
+                                        hadInitializationError = true;
+                                        TRACE(Trace::Error, (_T("DRM initialization: failed, send BUSY notification")));
+                                        _parent._parent.initializationStatusNotify(_keySystem, Exchange::IContentDecryption::Status::BUSY);
+                                    }
+                                    usleep(INITIALIZATION_RETRY_SLEEP_MS * 1000);
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (hadInitializationError) {
+                            TRACE(Trace::Error, (_T("DRM initialization: failed, send FAILED notification")));
+                            _parent._parent.initializationStatusNotify(_keySystem, Exchange::IContentDecryption::Status::FAILED);
+                            ODH_ERROR_REPORT_CTX_ERROR(0, "DRM initialization: failed after retrying", INITIALIZATION_MAX_RETRY_COUNTER);
+                        }
+                    } else {
+                        TRACE_L1("Unexpected failure - extended system not found");
+                    }
+                    TRACE_L1("Init context done (%d), keySystem %s", result, _keySystem.c_str());
+                    return result;
                 }
                 const std::string& GetKeySystem()
                 {
                     return _keySystem;
+                }
+                const bool IsInitialized()
+                {
+                    return _initialized;
                 }
 
                 BEGIN_INTERFACE_MAP(ContextImplementation)
@@ -284,6 +333,8 @@ namespace Plugin {
                 AccessorOCDM& _parent;
                 std::string _keySystem;
                 bool _cleanOnDestroy;
+                bool _initialized{};
+                std::mutex _ctxMutex;
             };
 
             // IMediaKeys defines the MediaKeys interface.
@@ -909,54 +960,18 @@ namespace Plugin {
                     }
                 }
 
-                bool hadInitializationError = false;
                 if (system != nullptr) {
                     result = Exchange::OCDM_RESULT::OCDM_SUCCESS;
                     CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
                     if (systemExt != nullptr) {
 
-                        for (int i = 0; i < INITIALIZATION_MAX_RETRY_COUNTER; i++) {
+                        ContextImplementation *ctxImplementation = Core::Service<ContextImplementation>::Create<ContextImplementation>(this, keySystem, cleanOnDestroy);
+                        context = ctxImplementation;
 
-                            result = static_cast<Exchange::OCDM_RESULT>(systemExt->InitializeCtx(keySystem));
-
-                            if (result == Exchange::OCDM_RESULT::OCDM_SUCCESS) {
-                                if (hadInitializationError) {
-                                    TRACE(Trace::Warning, (_T("DRM initialization: success after re-trying, send SUCCESS notification")));
-                                    _parent.initializationStatusNotify(keySystem, Exchange::IContentDecryption::Status::SUCCESS);
-                                    ODH_ERROR_REPORT_CTX_ERROR(0, "DRM initialization: success after retrying", i);
-                                }
-
-                                ContextImplementation *ctxImplementation = Core::Service<ContextImplementation>::Create<ContextImplementation>(this, keySystem, cleanOnDestroy);
-                                context = ctxImplementation;
-
-                                _adminLock.Lock();
-                                _contextList.push_front(ctxImplementation);
-                                TRACE_L1("context created: %p, number of context instances %d", ctxImplementation, _contextList.size());
-                                _adminLock.Unlock();
-                                break;
-                            } else {
-                                TRACE(Trace::Error, (_T("DRM initialization: failed, result=%08x counter=%d"), result, i));
-                                if (result == Exchange::OCDM_RESULT::OCDM_BUSY_CANNOT_INITIALIZE) {
-                                    if (!hadInitializationError) {
-                                        hadInitializationError = true;
-                                        TRACE(Trace::Error, (_T("DRM initialization: failed, send BUSY notification")));
-                                        _parent.initializationStatusNotify(keySystem, Exchange::IContentDecryption::Status::BUSY);
-                                    }
-                                    usleep(INITIALIZATION_RETRY_SLEEP_MS * 1000);
-                                } else {
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (context == nullptr) {
-                            TRACE(Trace::Error, (_T("Could not create DRM context! [%d]"), __LINE__));
-                            if (hadInitializationError) {
-                                TRACE(Trace::Error, (_T("DRM initialization: failed, send FAILED notification")));
-                                _parent.initializationStatusNotify(keySystem, Exchange::IContentDecryption::Status::FAILED);
-                                ODH_ERROR_REPORT_CTX_ERROR(0, "DRM initialization: failed after retrying", INITIALIZATION_MAX_RETRY_COUNTER);
-                            }
-                        }
+                        _adminLock.Lock();
+                        _contextList.push_front(ctxImplementation);
+                        TRACE_L1("context created: %p, number of context instances %d", ctxImplementation, _contextList.size());
+                        _adminLock.Unlock();
                     }
                 } else {
                     TRACE(Trace::Error, (_T("System is null")));
@@ -1242,7 +1257,7 @@ namespace Plugin {
                     if (index != _contextList.end()) {
                         CDMi::IMediaKeysExt* systemExt = dynamic_cast<CDMi::IMediaKeysExt*>(_parent.KeySystem(keySystem));
 
-                        if (systemExt != nullptr) {
+                        if (systemExt != nullptr && context->IsInitialized()) {
                             Exchange::OCDM_RESULT result = (Exchange::OCDM_RESULT)systemExt->DeinitializeCtx(keySystem, cleanOnDestroy);
                             if (result != Exchange::OCDM_RESULT::OCDM_SUCCESS) {
                                 TRACE(Trace::Error, (_T("Context deinitialization failure")));
