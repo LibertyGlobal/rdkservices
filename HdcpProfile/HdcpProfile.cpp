@@ -82,14 +82,20 @@ namespace WPEFramework
 
         const string HdcpProfile::Initialize(PluginHost::IShell * /* service */)
         {
-            HdcpProfile::_instance = this;
+            {
+                Utils::Synchro::LockApiGuard<HdcpProfile> lock;
+                HdcpProfile::_instance = this;
+            }
             InitializeIARM();
             return (string());
         }
 
         void HdcpProfile::Deinitialize(PluginHost::IShell* /* service */)
         {
-            HdcpProfile::_instance = nullptr;
+            {
+                Utils::Synchro::LockApiGuard<HdcpProfile> lock;
+                HdcpProfile::_instance = nullptr;
+            }
             //No need to run device::Manager::DeInitialize for individual plugin. As it is a singleton instance
             //and shared among all wpeframework plugins
             DeinitializeIARM();
