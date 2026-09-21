@@ -4038,13 +4038,13 @@ static GSourceFuncs _handlerIntervention =
             WKPreferencesSetGamepadsEnabled(preferences, true);
 
             // Turn on fullscreen API.
-            WKPreferencesSetFullScreenEnabled(preferences, true);
+            WKPreferencesSetFullScreenEnabled(preferences, true);   
 
             // Turn off BackForwardList
             WKPreferencesSetPageCacheEnabled(preferences, FALSE);
 
             // Turn on/off allowScriptWindowClose
-            WKPreferencesSetAllowScriptsToCloseWindow(preferences, _config.AllowWindowClose.Value());
+            WKPreferencesSetAllowScriptsToCloseWindow(preferences, true);
 
             // Turn on/off non composited WebGL
             WKPreferencesSetNonCompositedWebGLEnabled(preferences, _config.NonCompositedWebGLEnabled.Value());
