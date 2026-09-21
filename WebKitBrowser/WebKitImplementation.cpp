@@ -746,7 +746,7 @@ static GSourceFuncs _handlerIntervention =
                 , Languages()
                 , CertificateCheck(true)
                 , ClientIdentifier()
-                , AllowWindowClose(false)
+                , AllowWindowClose(true)
                 , AllowMoveToSuspendOnWindowClose(false)
                 , NonCompositedWebGLEnabled(false)
                 , EnvironmentOverride(false)
@@ -4038,7 +4038,7 @@ static GSourceFuncs _handlerIntervention =
             WKPreferencesSetGamepadsEnabled(preferences, true);
 
             // Turn on fullscreen API.
-            WKPreferencesSetFullScreenEnabled(preferences, true);
+            WKPreferencesSetFullScreenEnabled(preferences, true);   
 
             // Turn off BackForwardList
             WKPreferencesSetPageCacheEnabled(preferences, FALSE);
