@@ -746,7 +746,7 @@ static GSourceFuncs _handlerIntervention =
                 , Languages()
                 , CertificateCheck(true)
                 , ClientIdentifier()
-                , AllowWindowClose(false)
+                , AllowWindowClose(false) 
                 , AllowMoveToSuspendOnWindowClose(false)
                 , NonCompositedWebGLEnabled(false)
                 , EnvironmentOverride(false)
